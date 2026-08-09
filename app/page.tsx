@@ -65,7 +65,7 @@ export default function Home() {
       <div className="max-w-4xl mx-auto space-y-8">
         <div className="flex justify-between items-start">
           <div>
-            <h1 className="text-3xl font-bold text-emerald-400">KESY 2.0 - Dashboard & Sync Test</h1>
+            <h1 className="text-3xl font-bold text-emerald-400">KESY 2.0 - Dashboard & Sync Test111</h1>
             <p className="text-slate-400 text-sm mt-1">
               Controleer de gemigreerde SQLite SSOT-database en test de row-level Turso Cloud sync.
             </p>
