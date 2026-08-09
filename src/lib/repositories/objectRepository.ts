@@ -1,5 +1,5 @@
 // src/lib/repositories/objectRepository.ts
-import { db } from "@/src/lib/db";
+import { activeDb as db} from "@/src/lib/db";
 import * as schema from "@/src/db/schema";
 import { eq, asc, inArray } from "drizzle-orm";
 import { alias } from "drizzle-orm/sqlite-core";
