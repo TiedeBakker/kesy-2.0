@@ -12,7 +12,11 @@ import {
 import { revalidatePath } from "next/cache";
 
 // app/actions.ts
+// app/actions.ts
 export async function haalStatistiekenOp() {
+    // Detecteer of we op Vercel draaien
+    const isVercel = process.env.VERCEL === "1" || process.env.NODE_ENV === "production";
+
     let lokaalData = {
         totaalObjecten: 0,
         vertrouwelijkObjecten: 0,
@@ -22,44 +26,53 @@ export async function haalStatistiekenOp() {
         totaalRelaties: 0,
     };
 
-    // 1. Probeer Lokale DB te lezen (Werkt op localhost, faalt/ontbreekt op Vercel)
-    try {
-        const [totalObj] = await db.select({ count: sql<number>`count(*)` }).from(schema.objects);
-        const [confObj] = await db
-            .select({ count: sql<number>`count(*)` })
-            .from(schema.objects)
-            .where(eq(schema.objects.isConfidential, true));
+    // Alleen lokale SQLite aanspreken als we NIET op Vercel zitten (bijv. lokaal)
+    if (!isVercel) {
+        try {
+            const [totalObj] = await db.select({ count: sql<number>`count(*)` }).from(schema.objects);
+            const [confObj] = await db
+                .select({ count: sql<number>`count(*)` })
+                .from(schema.objects)
+                .where(eq(schema.objects.isConfidential, true));
 
-        const [totalParams] = await db.select({ count: sql<number>`count(*)` }).from(schema.parameterValues);
-        const [confParams] = await db
-            .select({ count: sql<number>`count(*)` })
-            .from(schema.parameterValues)
-            .where(eq(schema.parameterValues.isConfidential, true));
+            const [totalParams] = await db.select({ count: sql<number>`count(*)` }).from(schema.parameterValues);
+            const [confParams] = await db
+                .select({ count: sql<number>`count(*)` })
+                .from(schema.parameterValues)
+                .where(eq(schema.parameterValues.isConfidential, true));
 
-        const [totalRel] = await db.select({ count: sql<number>`count(*)` }).from(schema.relationValues);
+            const [totalRel] = await db.select({ count: sql<number>`count(*)` }).from(schema.relationValues);
 
-        lokaalData = {
-            totaalObjecten: totalObj?.count || 0,
-            vertrouwelijkObjecten: confObj?.count || 0,
-            publiekObjecten: (totalObj?.count || 0) - (confObj?.count || 0),
-            totaalParameters: totalParams?.count || 0,
-            vertrouwelijkParameters: confParams?.count || 0,
-            totaalRelaties: totalRel?.count || 0,
-        };
-    } catch (e) {
-        console.warn("Lokale SQLite niet beschikbaar (waarschijnlijk Cloud-omgeving):", e);
+            lokaalData = {
+                totaalObjecten: totalObj?.count || 0,
+                vertrouwelijkObjecten: confObj?.count || 0,
+                publiekObjecten: (totalObj?.count || 0) - (confObj?.count || 0),
+                totaalParameters: totalParams?.count || 0,
+                vertrouwelijkParameters: confParams?.count || 0,
+                totaalRelaties: totalRel?.count || 0,
+            };
+        } catch (e) {
+            console.warn("Lokale SQLite niet beschikbaar:", e);
+        }
     }
 
-    // 2. Turso statistieken (voor Vercel / Cloud)
+    // Turso / Remote statistieken ophalen
     let tursoObjCount = 0;
-    if (dbRemote) {
+    const targetDb = dbRemote || db;
+    if (targetDb) {
         try {
-            const [tRes] = await dbRemote.select({ count: sql<number>`count(*)` }).from(schema.objects);
+            const [tRes] = await targetDb.select({ count: sql<number>`count(*)` }).from(schema.objects);
             tursoObjCount = tRes?.count || 0;
         } catch (e) {
-            console.error("Turso DB leesfout:", e);
+            console.error("Remote DB leesfout:", e);
             tursoObjCount = 0;
         }
+    }
+
+    // Als we op Vercel zitten, vullen we de lokale stats optioneel met de remote data voor de weergave
+    if (isVercel) {
+        lokaalData.totaalObjecten = tursoObjCount;
+        lokaalData.publiekObjecten = tursoObjCount;
     }
 
     return {
@@ -89,7 +102,7 @@ export async function haalObjectDossierOp(objectId: string) {
 
 export async function zoekObjecten(zoekterm: string = "") {
     // 💡 Als op Vercel 'db' lokaal leeg/afwezig is, moet hij Turso ('dbRemote') bevragen!
-    const client = dbRemote || db; 
+    const client = dbRemote || db;
 
     const resultaten = await client
         .select({
@@ -111,24 +124,24 @@ export async function zoekObjecten(zoekterm: string = "") {
 }
 // Server Action om een compleet object dossier op te slaan
 export async function slaObjectDossierOp(payload: SaveObjectPayload) {
-  try {
-    const savedObjectId = await saveObjectDossier(payload);
-    // Ververs de cache van Next.js zodat alle overzichten direct bijgewerkt zijn
-    revalidatePath("/");
-    return { success: true, objectId: savedObjectId };
-  } catch (error: any) {
-    console.error("Fout bij opslaan dossier:", error);
-    return { success: false, error: error.message };
-  }
+    try {
+        const savedObjectId = await saveObjectDossier(payload);
+        // Ververs de cache van Next.js zodat alle overzichten direct bijgewerkt zijn
+        revalidatePath("/");
+        return { success: true, objectId: savedObjectId };
+    } catch (error: any) {
+        console.error("Fout bij opslaan dossier:", error);
+        return { success: false, error: error.message };
+    }
 }
 
 // Server Action om de keuzelijsten voor parameters en relaties op te halen
 export async function haalDefinitiesOp() {
-  try {
-    const parameters = await db.select().from(schema.parameters);
-    const relations = await db.select().from(schema.relations);
-    return { success: true, parameters, relations };
-  } catch (error: any) {
-    return { success: false, error: error.message };
-  }
+    try {
+        const parameters = await db.select().from(schema.parameters);
+        const relations = await db.select().from(schema.relations);
+        return { success: true, parameters, relations };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
 }
