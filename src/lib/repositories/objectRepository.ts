@@ -131,7 +131,7 @@ export async function saveObjectDossier(payload: SaveObjectPayload) {
     // Zorg dat validFrom nooit undefined/null is i.v.m. .notNull() in schema
     const defaultValidFrom = payload.validFrom || nu;
 
-    return await db.transaction(async (tx) => {
+    return await db.transaction(async (tx: any) => {
         let objectId = payload.id;
 
         // 1. OBJECT STAMGEGEVENS OPSLAAN OF BIJWERKEN

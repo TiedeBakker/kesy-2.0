@@ -2,6 +2,7 @@
 "use server";
 
 import { db, syncPubliekeDataNaarTurso, dbRemote } from "@/src/lib/db";
+import { activeDb } from "@/src/lib/db";
 import * as schema from "@/src/db/schema";
 import { sql, eq, like, and } from "drizzle-orm";
 import {
@@ -12,158 +13,72 @@ import {
 import { revalidatePath } from "next/cache";
 
 // app/actions.ts
-// app/actions.ts
-// export async function haalStatistiekenOp() {
-//     // Detecteer of we op Vercel draaien
-//     const isVercel = process.env.VERCEL === "1" || process.env.NODE_ENV === "production";
 
-//     let lokaalData = {
-//         totaalObjecten: 0,
-//         vertrouwelijkObjecten: 0,
-//         publiekObjecten: 0,
-//         totaalParameters: 0,
-//         vertrouwelijkParameters: 0,
-//         totaalRelaties: 0,
-//     };
-
-//     // Alleen lokale SQLite aanspreken als we NIET op Vercel zitten (bijv. lokaal)
-//     if (!isVercel) {
-//         try {
-//             const [totalObj] = await db.select({ count: sql<number>`count(*)` }).from(schema.objects);
-//             const [confObj] = await db
-//                 .select({ count: sql<number>`count(*)` })
-//                 .from(schema.objects)
-//                 .where(eq(schema.objects.isConfidential, true));
-
-//             const [totalParams] = await db.select({ count: sql<number>`count(*)` }).from(schema.parameterValues);
-//             const [confParams] = await db
-//                 .select({ count: sql<number>`count(*)` })
-//                 .from(schema.parameterValues)
-//                 .where(eq(schema.parameterValues.isConfidential, true));
-
-//             const [totalRel] = await db.select({ count: sql<number>`count(*)` }).from(schema.relationValues);
-
-//             lokaalData = {
-//                 totaalObjecten: totalObj?.count || 0,
-//                 vertrouwelijkObjecten: confObj?.count || 0,
-//                 publiekObjecten: (totalObj?.count || 0) - (confObj?.count || 0),
-//                 totaalParameters: totalParams?.count || 0,
-//                 vertrouwelijkParameters: confParams?.count || 0,
-//                 totaalRelaties: totalRel?.count || 0,
-//             };
-//         } catch (e) {
-//             console.warn("Lokale SQLite niet beschikbaar:", e);
-//         }
-//     }
-
-//     // Turso / Remote statistieken ophalen
-//     let tursoObjCount = 0;
-//     const targetDb = dbRemote || db;
-//     if (targetDb) {
-//         try {
-//             const [tRes] = await targetDb.select({ count: sql<number>`count(*)` }).from(schema.objects);
-//             tursoObjCount = tRes?.count || 0;
-//         } catch (e) {
-//             console.error("Remote DB leesfout:", e);
-//             tursoObjCount = 0;
-//         }
-//     }
-
-//     // Als we op Vercel zitten, vullen we de lokale stats optioneel met de remote data voor de weergave
-//     if (isVercel) {
-//         lokaalData.totaalObjecten = tursoObjCount;
-//         lokaalData.publiekObjecten = tursoObjCount;
-//     }
-
-//     return {
-//         lokaal: lokaalData,
-//         turso: {
-//             totaalObjecten: tursoObjCount,
-//         },
-//     };
-// }
-
-// app/actions.ts
 export async function haalStatistiekenOp() {
-    console.log("🔍 [DEBUG] Start haalStatistiekenOp op Vercel...");
-    const start = Date.now();
+  let lokaalData = {
+    totaalObjecten: 0,
+    vertrouwelijkObjecten: 0,
+    publiekObjecten: 0,
+    totaalParameters: 0,
+    vertrouwelijkParameters: 0,
+    totaalRelaties: 0,
+  };
 
-    const isVercel = process.env.VERCEL === "1" || process.env.NODE_ENV === "production";
-    console.log(`🔍 [DEBUG] Omgeving: isVercel=${isVercel}, NODE_ENV=${process.env.NODE_ENV}`);
+  // Lokale statistieken alleen ophalen als lokale DB actief is op pc
+  if (db) {
+    try {
+      const [totalObj] = await db.select({ count: sql<number>`count(*)` }).from(schema.objects);
+      const [confObj] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(schema.objects)
+        .where(eq(schema.objects.isConfidential, true));
 
-    let lokaalData = {
-        totaalObjecten: 0,
-        vertrouwelijkObjecten: 0,
-        publiekObjecten: 0,
-        totaalParameters: 0,
-        vertrouwelijkParameters: 0,
-        totaalRelaties: 0,
-    };
+      const [totalParams] = await db.select({ count: sql<number>`count(*)` }).from(schema.parameterValues);
+      const [confParams] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(schema.parameterValues)
+        .where(eq(schema.parameterValues.isConfidential, true));
 
-    // STAP 1: Lokale DB check
-    if (!isVercel) {
-        console.log("🔍 [DEBUG] Lokale DB bevragen op pc...");
-        try {
-            const [totalObj] = await db.select({ count: sql<number>`count(*)` }).from(schema.objects);
-            const [confObj] = await db
-                .select({ count: sql<number>`count(*)` })
-                .from(schema.objects)
-                .where(eq(schema.objects.isConfidential, true));
+      const [totalRel] = await db.select({ count: sql<number>`count(*)` }).from(schema.relationValues);
 
-            const [totalParams] = await db.select({ count: sql<number>`count(*)` }).from(schema.parameterValues);
-            const [confParams] = await db
-                .select({ count: sql<number>`count(*)` })
-                .from(schema.parameterValues)
-                .where(eq(schema.parameterValues.isConfidential, true));
-
-            const [totalRel] = await db.select({ count: sql<number>`count(*)` }).from(schema.relationValues);
-
-            lokaalData = {
-                totaalObjecten: totalObj?.count || 0,
-                vertrouwelijkObjecten: confObj?.count || 0,
-                publiekObjecten: (totalObj?.count || 0) - (confObj?.count || 0),
-                totaalParameters: totalParams?.count || 0,
-                vertrouwelijkParameters: confParams?.count || 0,
-                totaalRelaties: totalRel?.count || 0,
-            };
-            console.log("✅ [DEBUG] Lokale DB succesvol uitgelezen.");
-        } catch (e: any) {
-            console.error("❌ [DEBUG] Fout bij Lokale DB:", e?.message || e);
-        }
-    } else {
-        console.log("⚡ [DEBUG] Vercel gedetecteerd: Lokale DB overgeslagen.");
+      lokaalData = {
+        totaalObjecten: totalObj?.count || 0,
+        vertrouwelijkObjecten: confObj?.count || 0,
+        publiekObjecten: (totalObj?.count || 0) - (confObj?.count || 0),
+        totaalParameters: totalParams?.count || 0,
+        vertrouwelijkParameters: confParams?.count || 0,
+        totaalRelaties: totalRel?.count || 0,
+      };
+    } catch (e) {
+      console.warn("Lokale DB kon niet gelezen worden:", e);
     }
+  }
 
-    // STAP 2: Remote / Turso DB check
-    let tursoObjCount = 0;
-    console.log(`🔍 [DEBUG] Turso check... dbRemote aanwezig? ${Boolean(dbRemote)}`);
-
-    if (dbRemote) {
-        try {
-            console.log("🔍 [DEBUG] Bevragen dbRemote (Turso)...");
-            const [tRes] = await dbRemote.select({ count: sql<number>`count(*)` }).from(schema.objects);
-            tursoObjCount = tRes?.count || 0;
-            console.log(`✅ [DEBUG] Turso uitgelezen. Aantal objecten: ${tursoObjCount}`);
-        } catch (e: any) {
-            console.error("❌ [DEBUG] Fout bij Turso DB:", e?.message || e);
-        }
-    } else {
-        console.warn("⚠️ [DEBUG] dbRemote is null of undefined! Is TURSO_DATABASE_URL ingesteld op Vercel?");
+  // Turso (Remote) Statistieken
+  let tursoObjCount = 0;
+  const remoteTarget = dbRemote || activeDb;
+  
+  if (remoteTarget) {
+    try {
+      const [tRes] = await remoteTarget.select({ count: sql<number>`count(*)` }).from(schema.objects);
+      tursoObjCount = tRes?.count || 0;
+    } catch (e) {
+      console.error("Turso leesfout:", e);
     }
+  }
 
-    if (isVercel) {
-        lokaalData.totaalObjecten = tursoObjCount;
-        lokaalData.publiekObjecten = tursoObjCount;
-    }
+  // Op Vercel tonen we de Turso-tellingen als hoofdweergave
+  if (!db) {
+    lokaalData.totaalObjecten = tursoObjCount;
+    lokaalData.publiekObjecten = tursoObjCount;
+  }
 
-    console.log(`🏁 [DEBUG] haalStatistiekenOp voltooid in ${Date.now() - start}ms`);
-
-    return {
-        lokaal: lokaalData,
-        turso: {
-            totaalObjecten: tursoObjCount,
-        },
-    };
+  return {
+    lokaal: lokaalData,
+    turso: {
+      totaalObjecten: tursoObjCount,
+    },
+  };
 }
 export async function voerSyncUit() {
     try {

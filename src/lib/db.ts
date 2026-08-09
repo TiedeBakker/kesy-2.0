@@ -5,31 +5,49 @@ import { eq, sql, and } from "drizzle-orm";
 import path from "path";
 import * as schema from "../db/schema";
 
-// 1. Lokale SQLite Database (De enige echte SSOT)
-const localDbPath = `file:${path.join(process.cwd(), "data", "kesy_local.db")}`;
-const localClient = createClient({ url: localDbPath });
-export const db = drizzle(localClient, { schema });
+const isVercel = process.env.VERCEL === "1" || process.env.NODE_ENV === "production";
 
-// 2. Turso Remote Client (Uitsluitend voor de Sync Engine)
+// 1. Lokale SQLite Database (De SSOT - Alleen laden als we NIET op Vercel zitten)
+let localDbInstance: any = null;
+
+if (!isVercel) {
+  try {
+    const localDbPath = `file:${path.join(process.cwd(), "data", "kesy_local.db")}`;
+    const localClient = createClient({ url: localDbPath });
+    localDbInstance = drizzle(localClient, { schema });
+  } catch (err) {
+    console.warn("Mislukt om lokale SQLite client te starten:", err);
+  }
+}
+
+export const db = localDbInstance;
+
+// 2. Turso Remote Client (Voor Vercel én Sync Engine)
 const remoteUrl = process.env.TURSO_DATABASE_URL;
 const remoteAuthToken = process.env.TURSO_AUTH_TOKEN;
 
-const remoteClient = remoteUrl && remoteAuthToken
-  ? createClient({ url: remoteUrl, authToken: remoteAuthToken })
-  : null;
+const remoteClient =
+  remoteUrl && remoteAuthToken
+    ? createClient({ url: remoteUrl, authToken: remoteAuthToken })
+    : null;
 
 export const dbRemote = remoteClient ? drizzle(remoteClient, { schema }) : null;
+
+// 💡 Actieve DB voor query's (Turso op Vercel, lokaal SQLite op laptop)
+export const activeDb = isVercel ? dbRemote : (db || dbRemote);
 
 //
 // 3. ROW-LEVEL PUBLIC SYNC ENGINE (Lokaal ➔ Turso Cloud)
 //
 export async function syncPubliekeDataNaarTurso(lastSyncTimestamp?: string) {
+  if (!db) {
+    throw new Error("Sync kan alleen lokaal worden uitgevoerd (lokale SQLite database ontbreekt).");
+  }
   if (!dbRemote) {
     throw new Error("Turso database credentials ontbreken in .env.local!");
   }
 
   const syncTime = new Date().toISOString();
-  // Als er geen timestamp is meegegeven, pakken we alle publieke data (Full Push)
   const filterTime = lastSyncTimestamp || "1970-01-01T00:00:00.000Z";
 
   const resultaten = {
@@ -55,18 +73,18 @@ export async function syncPubliekeDataNaarTurso(lastSyncTimestamp?: string) {
     await dbRemote.insert(schema.units).values(unitsData).onConflictDoNothing();
   }
 
-  // 📍 NIEUW: Taxa in batches van 100 pushen naar Turso
-if (taxaData.length > 0) {
-  for (let i = 0; i < taxaData.length; i += 100) {
-    const batch = taxaData.slice(i, i + 100);
-    await dbRemote.insert(schema.relevanteTaxa).values(batch).onConflictDoNothing();
+  if (taxaData.length > 0) {
+    for (let i = 0; i < taxaData.length; i += 100) {
+      const batch = taxaData.slice(i, i + 100);
+      await dbRemote.insert(schema.relevanteTaxa).values(batch).onConflictDoNothing();
+    }
   }
-}
- resultaten.stamgegevens = 
-  relationsData.length + 
-  parametersData.length + 
-  unitsData.length + 
-  taxaData.length; // 📍 Bijgewerkt
+  
+  resultaten.stamgegevens =
+    relationsData.length +
+    parametersData.length +
+    unitsData.length +
+    taxaData.length;
 
   // --- B. ENTITEITEN & WAARDEN (Alleen isConfidential = false) ---
   
@@ -82,7 +100,6 @@ if (taxaData.length > 0) {
     );
 
   if (pubObjects.length > 0) {
-    // In batches van 100 naar Turso pushen
     for (let i = 0; i < pubObjects.length; i += 100) {
       const batch = pubObjects.slice(i, i + 100);
       await dbRemote.insert(schema.objects).values(batch).onConflictDoNothing();
