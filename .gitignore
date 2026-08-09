@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# database (Lokaal opschonen zodat Vercel/Git het negeert)
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
