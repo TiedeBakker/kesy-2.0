@@ -1,69 +1,192 @@
-import Image from "next/image";
+// app/page.tsx
+"use client";
+
+import { useState, useEffect } from "react";
+import ObjectModal from "@/src/components/ObjectModal";
+import { haalStatistiekenOp, voerSyncUit, zoekObjecten } from "./actions";
 
 export default function Home() {
+  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [syncLog, setSyncLog] = useState<any>(null);
+
+  // Modal State Control (Optie B)
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
+
+  const [zoekterm, setZoekterm] = useState("");
+  const [zoekResultaten, setZoekResultaten] = useState<any[]>([]);
+
+  const laadData = async () => {
+    setLoading(true);
+    const s = await haalStatistiekenOp();
+    setStats(s);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    laadData();
+  }, []);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    setSyncLog(null);
+    const res = await voerSyncUit();
+    setSyncLog(res);
+    await laadData();
+    setSyncing(false);
+  };
+
+  const handleZoeken = async (term: string) => {
+    setZoekterm(term);
+    if (term.length > 1) {
+      const res = await zoekObjecten(term);
+      setZoekResultaten(res);
+    } else {
+      setZoekResultaten([]);
+    }
+  };
+
+  // Route 1: Openen bestaand object
+  const handleOpenObject = (id: string) => {
+    setSelectedObjectId(id);
+    setIsModalOpen(true);
+  };
+
+  // Route 1: Openen nieuw (leeg) object
+  const handleNieuwObject = () => {
+    setSelectedObjectId(null);
+    setIsModalOpen(true);
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+    <main className="min-h-screen bg-slate-900 text-slate-100 p-8">
+      <div className="max-w-4xl mx-auto space-y-8">
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-3xl font-bold text-emerald-400">KESY 2.0 - Dashboard & Sync Test</h1>
+            <p className="text-slate-400 text-sm mt-1">
+              Controleer de gemigreerde SQLite SSOT-database en test de row-level Turso Cloud sync.
+            </p>
+          </div>
+
+          {/* GLOBAL NEW OBJECT BUTTON */}
+          <button
+            onClick={handleNieuwObject}
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg shadow-lg transition flex items-center gap-2"
           >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            <span>➕</span> Nieuw Object
+          </button>
         </div>
-      </main>
-    </div>
+
+        {loading ? (
+          <div className="p-4 bg-slate-800 rounded-lg text-slate-300">Statistieken laden...</div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* LOKALE DB CARD */}
+            <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 space-y-4">
+              <h2 className="text-xl font-semibold text-slate-200 border-b border-slate-700 pb-2">
+                🖥️ Lokale SQLite Database (SSOT)
+              </h2>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span>Totaal Objecten:</span>
+                  <span className="font-mono font-bold text-emerald-400">{stats?.lokaal.totaalObjecten}</span>
+                </div>
+                <div className="flex justify-between text-slate-400 pl-4">
+                  <span>- Publiek:</span>
+                  <span className="font-mono">{stats?.lokaal.publiekObjecten}</span>
+                </div>
+                <div className="flex justify-between text-rose-400 pl-4">
+                  <span>- Vertrouwelijk:</span>
+                  <span className="font-mono">{stats?.lokaal.vertrouwelijkObjecten}</span>
+                </div>
+                <hr className="border-slate-700 my-2" />
+                <div className="flex justify-between">
+                  <span>Totaal Relaties:</span>
+                  <span className="font-mono font-bold text-emerald-400">{stats?.lokaal.totaalRelaties}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Totaal Parameterwaarden:</span>
+                  <span className="font-mono font-bold text-emerald-400">{stats?.lokaal.totaalParameters}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* TURSO CLOUD CARD */}
+            <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 space-y-4">
+              <h2 className="text-xl font-semibold text-slate-200 border-b border-slate-700 pb-2">
+                ☁️ Turso Cloud Database (Publiek)
+              </h2>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span>Gepubliceerde Objecten:</span>
+                  <span className="font-mono font-bold text-sky-400">{stats?.turso.totaalObjecten}</span>
+                </div>
+                <p className="text-xs text-slate-400 mt-2">
+                  Mag maximaal <span className="text-slate-200 font-bold">{stats?.lokaal.publiekObjecten}</span> zijn (alleen publieke records).
+                </p>
+              </div>
+
+              <button
+                onClick={handleSync}
+                disabled={syncing}
+                className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 text-white font-medium rounded-lg transition"
+              >
+                {syncing ? "Bezig met synchroniseren..." : "🔄 Start Publieke Turso Sync"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* LOG RESULTATEN */}
+        {syncLog && (
+          <div className={`p-4 rounded-xl border ${syncLog.success ? "bg-emerald-950/40 border-emerald-800" : "bg-rose-950/40 border-rose-800"}`}>
+            <h3 className="font-semibold text-sm mb-1">{syncLog.success ? "✓ Sync Succesvol" : "❌ Sync Fout"}</h3>
+            <pre className="text-xs font-mono text-slate-300 overflow-x-auto">
+              {JSON.stringify(syncLog, null, 2)}
+            </pre>
+          </div>
+        )}
+
+        {/* OBJECTEN ZOEKBOX EN TEST-LAUNCHER */}
+        <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 space-y-4">
+          <h2 className="text-xl font-semibold text-slate-200 border-b border-slate-700 pb-2">
+            🔍 Test Object Dossier Modal
+          </h2>
+          <input
+            type="text"
+            placeholder="Zoek een object op label (bijv. 'Bach' of 'Orgel')..."
+            value={zoekterm}
+            onChange={(e) => handleZoeken(e.target.value)}
+            className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-200 focus:outline-none focus:border-sky-500"
+          />
+          {zoekResultaten.length > 0 && (
+            <div className="divide-y divide-slate-700/50 border border-slate-700 rounded-lg overflow-hidden bg-slate-900">
+              {zoekResultaten.map((obj) => (
+                <div
+                  key={obj.id}
+                  onClick={() => handleOpenObject(obj.id)}
+                  className="p-3 hover:bg-slate-800 cursor-pointer flex justify-between items-center transition"
+                >
+                  <span className="font-medium text-sky-400">{obj.label}</span>
+                  <span className="text-xs font-mono text-slate-500">{obj.id}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* HET MODAL VENSTER */}
+      <ObjectModal
+        isOpen={isModalOpen}
+        objectId={selectedObjectId}
+        onClose={() => setIsModalOpen(false)}
+        onSelectObject={(newId) => setSelectedObjectId(newId)}
+        onSaveSuccess={() => laadData()}
+      />
+    </main>
   );
 }
