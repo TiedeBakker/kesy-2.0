@@ -10,6 +10,7 @@ import {
     SaveObjectPayload
 } from "@/src/lib/repositories/objectRepository";
 import { revalidatePath } from "next/cache";
+import { voerVolledigeSyncUit } from "@/src/lib/syncEngine";
 
 // app/actions.ts
 
@@ -79,13 +80,16 @@ export async function haalStatistiekenOp() {
     },
   };
 }
+// app/actions.ts
+//import { voerVolledigeSyncUit } from "@/src/lib/syncEngine";
+
 export async function voerSyncUit() {
-    try {
-        const res = await syncPubliekeDataNaarTurso();
-        return { success: true, data: res };
-    } catch (error: any) {
-        return { success: false, error: error.message };
-    }
+  try {
+    const resultaat = await voerVolledigeSyncUit();
+    return { success: true, resultaat };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
 }
 
 export async function haalObjectDossierOp(objectId: string) {
@@ -143,3 +147,13 @@ export async function haalDefinitiesOp() {
         return { success: false, error: error.message };
     }
 }
+
+
+// export async function startSynchronisatieAction() {
+//   try {
+//     const resultaat = await voerVolledigeSyncUit();
+//     return { success: true, resultaat };
+//   } catch (error: any) {
+//     return { success: false, error: error.message };
+//   }
+// }

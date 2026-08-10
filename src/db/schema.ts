@@ -5,6 +5,14 @@ import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
 const currentTimestamp = () => new Date().toISOString();
 
 //
+// 0. SYNC METADATA
+//
+export const syncMetadata = sqliteTable("sync_metadata", {
+  id: text("id").primaryKey(), // Bijv. "main_sync"
+  lastSyncedAt: text("last_synced_at").notNull(),
+});
+
+//
 // 1. OBJECTEN
 //
 export const objects = sqliteTable("objects", {
@@ -20,6 +28,7 @@ export const objects = sqliteTable("objects", {
   updatedAt: text("updated_at")
     .notNull()
     .$defaultFn(currentTimestamp),
+  deletedAt: text("deleted_at"), // 🗑️ Soft-delete tracking for LWW sync
 });
 
 //
@@ -31,6 +40,7 @@ export const relations = sqliteTable("relations", {
   updatedAt: text("updated_at")
     .notNull()
     .$defaultFn(currentTimestamp),
+  deletedAt: text("deleted_at"),
 });
 
 //
@@ -52,6 +62,7 @@ export const relationValues = sqliteTable("relation_values", {
   updatedAt: text("updated_at")
     .notNull()
     .$defaultFn(currentTimestamp),
+  deletedAt: text("deleted_at"),
 });
 
 //
@@ -66,6 +77,7 @@ export const parameters = sqliteTable("parameters", {
   updatedAt: text("updated_at")
     .notNull()
     .$defaultFn(currentTimestamp),
+  deletedAt: text("deleted_at"),
 });
 
 //
@@ -87,6 +99,7 @@ export const parameterValues = sqliteTable("parameter_values", {
   updatedAt: text("updated_at")
     .notNull()
     .$defaultFn(currentTimestamp),
+  deletedAt: text("deleted_at"),
 });
 
 //
@@ -98,6 +111,7 @@ export const objectTypes = sqliteTable("object_types", {
   updatedAt: text("updated_at")
     .notNull()
     .$defaultFn(currentTimestamp),
+  deletedAt: text("deleted_at"),
 });
 
 export const valueTypes = sqliteTable("value_types", {
@@ -106,6 +120,7 @@ export const valueTypes = sqliteTable("value_types", {
   updatedAt: text("updated_at")
     .notNull()
     .$defaultFn(currentTimestamp),
+  deletedAt: text("deleted_at"),
 });
 
 export const units = sqliteTable("units", {
@@ -115,6 +130,7 @@ export const units = sqliteTable("units", {
   updatedAt: text("updated_at")
     .notNull()
     .$defaultFn(currentTimestamp),
+  deletedAt: text("deleted_at"),
 });
 
 //
@@ -126,6 +142,7 @@ export const parameterSets = sqliteTable("parameter_sets", {
   updatedAt: text("updated_at")
     .notNull()
     .$defaultFn(currentTimestamp),
+  deletedAt: text("deleted_at"),
 });
 
 export const parameterSetParameters = sqliteTable("parameter_set_parameters", {
@@ -139,6 +156,7 @@ export const parameterSetParameters = sqliteTable("parameter_set_parameters", {
   updatedAt: text("updated_at")
     .notNull()
     .$defaultFn(currentTimestamp),
+  deletedAt: text("deleted_at"),
 });
 
 //
@@ -154,4 +172,5 @@ export const relevanteTaxa = sqliteTable("relevante_taxa", {
   updatedAt: text("updated_at")
     .notNull()
     .$defaultFn(currentTimestamp),
+  deletedAt: text("deleted_at"),
 });

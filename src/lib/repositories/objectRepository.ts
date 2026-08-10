@@ -1,9 +1,9 @@
 // src/lib/repositories/objectRepository.ts
-import { activeDb as db} from "@/src/lib/db";
+import { activeDb as db } from "@/src/lib/db";
 import * as schema from "@/src/db/schema";
 import { eq, asc, inArray } from "drizzle-orm";
 import { alias } from "drizzle-orm/sqlite-core";
-
+import { v7 as uuidv7 } from "uuid";
 
 const sourceObject = alias(schema.objects, "sourceObject");
 const targetObject = alias(schema.objects, "targetObject");
@@ -19,7 +19,7 @@ export async function getObjectDossier(objectId: string) {
 
     if (!object) return null;
 
-    // 2. Parameters (gesorteerd op parameter label)
+    // 2. Parameters
     const parameterValues = await db
         .select({
             id: schema.parameterValues.id,
@@ -37,7 +37,7 @@ export async function getObjectDossier(objectId: string) {
         .where(eq(schema.parameterValues.targetId, objectId))
         .orderBy(asc(paramDef.label));
 
-    // 3. Uitgaande relaties (EERST op volgorde, DAARNA op label van target)
+    // 3. Uitgaande relaties
     const uitgaandeRelaties = await db
         .select({
             relationValueId: schema.relationValues.id,
@@ -56,7 +56,7 @@ export async function getObjectDossier(objectId: string) {
         .where(eq(schema.relationValues.sourceId, objectId))
         .orderBy(asc(schema.relationValues.volgorde), asc(targetObject.label));
 
-    // 4. Inkomende relaties (EERST op Relatie Type, DAARNA op Object Label)
+    // 4. Inkomende relaties
     const inkomendeRelaties = await db
         .select({
             relationValueId: schema.relationValues.id,
@@ -73,8 +73,8 @@ export async function getObjectDossier(objectId: string) {
         .innerJoin(sourceObject, eq(schema.relationValues.sourceId, sourceObject.id))
         .where(eq(schema.relationValues.targetId, objectId))
         .orderBy(
-            asc(relationDef.label),   // 1. Groepeer/sorteer op Relatie Type (bijv. "is kind van", "vervult rol")
-            asc(sourceObject.label)   // 2. Sorteer binnen die groep op Objectnaam (A-Z)
+            asc(relationDef.label),
+            asc(sourceObject.label)
         );
 
     return {
@@ -84,8 +84,6 @@ export async function getObjectDossier(objectId: string) {
         inkomendeRelaties,
     };
 }
-
-// Datatypes voor het opslaan/bijwerken van een dossier
 
 export interface SaveObjectPayload {
     id?: string;
@@ -128,7 +126,6 @@ export interface SaveObjectPayload {
 
 export async function saveObjectDossier(payload: SaveObjectPayload) {
     const nu = new Date().toISOString();
-    // Zorg dat validFrom nooit undefined/null is i.v.m. .notNull() in schema
     const defaultValidFrom = payload.validFrom || nu;
 
     return await db.transaction(async (tx: any) => {
@@ -147,7 +144,8 @@ export async function saveObjectDossier(payload: SaveObjectPayload) {
                 })
                 .where(eq(schema.objects.id, objectId));
         } else {
-            objectId = crypto.randomUUID();
+            // Unieke UUIDv7 voor nieuw object
+            objectId = uuidv7();
             await tx.insert(schema.objects).values({
                 id: objectId,
                 label: payload.label,
@@ -158,16 +156,24 @@ export async function saveObjectDossier(payload: SaveObjectPayload) {
             });
         }
 
-        // 2. VERWIJDERINGEN VERWERKEN
+        // 2. SOFT-DELETES VOOR VERWIJDERDE ITEMS (Sync-engine voert later de hard-delete uit)
         if (payload.verwijderdeParameterValueIds && payload.verwijderdeParameterValueIds.length > 0) {
             await tx
-                .delete(schema.parameterValues)
+                .update(schema.parameterValues)
+                .set({
+                    deletedAt: nu,
+                    updatedAt: nu,
+                })
                 .where(inArray(schema.parameterValues.id, payload.verwijderdeParameterValueIds));
         }
 
         if (payload.verwijderdeRelationValueIds && payload.verwijderdeRelationValueIds.length > 0) {
             await tx
-                .delete(schema.relationValues)
+                .update(schema.relationValues)
+                .set({
+                    deletedAt: nu,
+                    updatedAt: nu,
+                })
                 .where(inArray(schema.relationValues.id, payload.verwijderdeRelationValueIds));
         }
 
@@ -190,9 +196,9 @@ export async function saveObjectDossier(payload: SaveObjectPayload) {
                         .where(eq(schema.parameterValues.id, p.id));
                 } else {
                     await tx.insert(schema.parameterValues).values({
-                        id: crypto.randomUUID(),
+                        id: uuidv7(),
                         targetId: objectId,
-                        targetType: "object", // Verplicht veld volgens schema
+                        targetType: "object",
                         parameterId: p.parameterId,
                         value: p.value,
                         isConfidential: Boolean(p.isConfidential),
@@ -204,7 +210,7 @@ export async function saveObjectDossier(payload: SaveObjectPayload) {
             }
         }
 
-        // 4. UITGAANDE RELATIES UPSERTEN (Source = objectId)
+        // 4. UITGAANDE RELATIES UPSERTEN
         if (payload.uitgaandeRelaties) {
             for (let index = 0; index < payload.uitgaandeRelaties.length; index++) {
                 const rel = payload.uitgaandeRelaties[index];
@@ -226,21 +232,21 @@ export async function saveObjectDossier(payload: SaveObjectPayload) {
                         .where(eq(schema.relationValues.id, rel.id));
                 } else {
                     await tx.insert(schema.relationValues).values({
-                        id: rel.id || crypto.randomUUID(),
+                        id: rel.id || uuidv7(),
                         relationId: rel.relationId,
                         sourceId: objectId,
-                        targetId: rel.targetId, // <--- Gewoon direct rel.targetId gebruiken!
-                        volgorde: rel.volgorde ?? 0,
+                        targetId: rel.targetId,
+                        volgorde: volgorde,
                         isConfidential: Boolean(rel.isConfidential),
-                        validFrom: rel.validFrom || new Date().toISOString(),
+                        validFrom: itemValidFrom,
                         validTo: rel.validTo || null,
-                        updatedAt: new Date().toISOString(),
+                        updatedAt: nu,
                     });
                 }
             }
         }
 
-        // 5. INGAANDE RELATIES UPSERTEN (Target = objectId)
+        // 5. INGAANDE RELATIES UPSERTEN
         if (payload.inkomendeRelaties) {
             for (const rel of payload.inkomendeRelaties) {
                 const itemValidFrom = rel.validFrom || defaultValidFrom;
@@ -259,7 +265,7 @@ export async function saveObjectDossier(payload: SaveObjectPayload) {
                         .where(eq(schema.relationValues.id, rel.id));
                 } else {
                     await tx.insert(schema.relationValues).values({
-                        id: crypto.randomUUID(),
+                        id: uuidv7(),
                         relationId: rel.relationId,
                         sourceId: rel.sourceId,
                         targetId: objectId,

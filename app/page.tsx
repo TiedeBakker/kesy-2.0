@@ -11,7 +11,7 @@ export default function Home() {
   const [syncing, setSyncing] = useState(false);
   const [syncLog, setSyncLog] = useState<any>(null);
 
-  // Modal State Control (Optie B)
+  // Modal State Control
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
 
@@ -65,9 +65,9 @@ export default function Home() {
       <div className="max-w-4xl mx-auto space-y-8">
         <div className="flex justify-between items-start">
           <div>
-            <h1 className="text-3xl font-bold text-emerald-400">KESY 2.0 - Dashboard & Sync Test111</h1>
+            <h1 className="text-3xl font-bold text-emerald-400">KESY 2.0 - Dashboard & Sync</h1>
             <p className="text-slate-400 text-sm mt-1">
-              Controleer de gemigreerde SQLite SSOT-database en test de row-level Turso Cloud sync.
+              Beheer gegevens in SQLite SSOT en synchroniseer 2-weg met Turso Cloud.
             </p>
           </div>
 
@@ -125,7 +125,7 @@ export default function Home() {
                   <span className="font-mono font-bold text-sky-400">{stats?.turso.totaalObjecten}</span>
                 </div>
                 <p className="text-xs text-slate-400 mt-2">
-                  Mag maximaal <span className="text-slate-200 font-bold">{stats?.lokaal.publiekObjecten}</span> zijn (alleen publieke records).
+                  Toont publieke objecten op Turso. Synchroniseert via Last-Write-Wins (LWW).
                 </p>
               </div>
 
@@ -134,7 +134,7 @@ export default function Home() {
                 disabled={syncing}
                 className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 text-white font-medium rounded-lg transition"
               >
-                {syncing ? "Bezig met synchroniseren..." : "🔄 Start Publieke Turso Sync"}
+                {syncing ? "Bezig met 2-weg synchronisatie..." : "🔄 Start Twee-Weg Sync (LWW)"}
               </button>
             </div>
           </div>
