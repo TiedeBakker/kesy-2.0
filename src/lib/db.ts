@@ -5,24 +5,28 @@ import { eq, sql, and } from "drizzle-orm";
 import path from "path";
 import * as schema from "../db/schema";
 
-const isVercel = process.env.VERCEL === "1" || process.env.NODE_ENV === "production";
+// 1. Check of we op Vercel zitten
+const isVercel = Boolean(process.env.VERCEL) || process.env.NEXT_PUBLIC_VERCEL_ENV !== undefined;
 
-// 1. Lokale SQLite Database (De SSOT - Alleen laden als we NIET op Vercel zitten)
+// 2. Lokale SQLite Client (SSOT)
 let localDbInstance: any = null;
 
 if (!isVercel) {
   try {
-    const localDbPath = `file:${path.join(process.cwd(), "data", "kesy_local.db")}`;
-    const localClient = createClient({ url: localDbPath });
+    // Gebruik de DATABASE_URL uit .env.local direct als die er is!
+    const localUrl = process.env.DATABASE_URL || `file:${path.join(process.cwd(), "data", "kesy_local.db").replace(/\\/g, "/")}`;
+    
+    const localClient = createClient({ url: localUrl });
     localDbInstance = drizzle(localClient, { schema });
+    console.log("✅ Lokale SQLite succesvol verbonden via:", localUrl);
   } catch (err) {
-    console.warn("Mislukt om lokale SQLite client te starten:", err);
+    console.error("❌ KRITIEK: Mislukt om lokale SQLite client te starten:", err);
   }
 }
 
 export const db = localDbInstance;
 
-// 2. Turso Remote Client (Voor Vercel én Sync Engine)
+// 3. Turso Remote Client
 const remoteUrl = process.env.TURSO_DATABASE_URL;
 const remoteAuthToken = process.env.TURSO_AUTH_TOKEN;
 
@@ -33,8 +37,8 @@ const remoteClient =
 
 export const dbRemote = remoteClient ? drizzle(remoteClient, { schema }) : null;
 
-// 💡 Actieve DB voor query's (Turso op Vercel, lokaal SQLite op laptop)
-export const activeDb = isVercel ? dbRemote : (db || dbRemote);
+// 💡 Actieve DB: Lokaal dwingen we 'db' af. Als 'db' faalt, geeft hij lokaal een duidelijke fout in plaats van stiekem Turso te pakken!
+export const activeDb = isVercel ? dbRemote : (db ?? dbRemote);
 
 //
 // 3. ROW-LEVEL PUBLIC SYNC ENGINE (Lokaal ➔ Turso Cloud)

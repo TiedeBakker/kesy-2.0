@@ -1,8 +1,7 @@
 // app/actions.ts
 "use server";
 
-import { db, syncPubliekeDataNaarTurso, dbRemote } from "@/src/lib/db";
-import { activeDb } from "@/src/lib/db";
+import { activeDb, db, dbRemote, syncPubliekeDataNaarTurso } from "@/src/lib/db";
 import * as schema from "@/src/db/schema";
 import { sql, eq, like, and } from "drizzle-orm";
 import {
@@ -99,8 +98,8 @@ export async function haalObjectDossierOp(objectId: string) {
 }
 
 export async function zoekObjecten(zoekterm: string = "") {
-    // 💡 Als op Vercel 'db' lokaal leeg/afwezig is, moet hij Turso ('dbRemote') bevragen!
-    const client = dbRemote || db;
+    // 💡 Gebruik activeDb (is op je laptop de lokale SQLite DB met vertrouwelijke data)
+    const client = activeDb || db;
 
     const resultaten = await client
         .select({
@@ -112,8 +111,8 @@ export async function zoekObjecten(zoekterm: string = "") {
         .where(
             and(
                 like(schema.objects.label, `%${zoekterm}%`),
-                // 🔒 Publieke omgeving (Vercel) mag NIET vertrouwelijke objecten zoeken
-                dbRemote ? eq(schema.objects.isConfidential, false) : undefined
+                // 🔒 Alleen op Vercel (wanneer client === dbRemote) filteren we op publieke data!
+                client === dbRemote ? eq(schema.objects.isConfidential, false) : undefined
             )
         )
         .limit(10);
@@ -136,8 +135,9 @@ export async function slaObjectDossierOp(payload: SaveObjectPayload) {
 // Server Action om de keuzelijsten voor parameters en relaties op te halen
 export async function haalDefinitiesOp() {
     try {
-        const parameters = await db.select().from(schema.parameters);
-        const relations = await db.select().from(schema.relations);
+        const client = activeDb || db;
+        const parameters = await client.select().from(schema.parameters);
+        const relations = await client.select().from(schema.relations);
         return { success: true, parameters, relations };
     } catch (error: any) {
         return { success: false, error: error.message };
