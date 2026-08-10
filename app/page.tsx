@@ -11,6 +11,9 @@ export default function Home() {
   const [syncing, setSyncing] = useState(false);
   const [syncLog, setSyncLog] = useState<any>(null);
 
+  // Check of de app op Vercel draait
+  const isVercel = process.env.NEXT_PUBLIC_VERCEL_ENV !== undefined || process.env.VERCEL !== undefined;
+
   // Modal State Control
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
@@ -30,6 +33,7 @@ export default function Home() {
   }, []);
 
   const handleSync = async () => {
+    if (isVercel) return; // Extra beveiliging
     setSyncing(true);
     setSyncLog(null);
     const res = await voerSyncUit();
@@ -86,56 +90,74 @@ export default function Home() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* LOKALE DB CARD */}
             <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 space-y-4">
-              <h2 className="text-xl font-semibold text-slate-200 border-b border-slate-700 pb-2">
-                🖥️ Lokale SQLite Database (SSOT)
+              <h2 className="text-xl font-semibold text-slate-200 border-b border-slate-700 pb-2 flex justify-between items-center">
+                <span>🖥️ Lokale SQLite DB (SSOT)</span>
+                {isVercel && (
+                  <span className="text-xs bg-slate-700 text-slate-400 px-2 py-0.5 rounded font-mono">
+                    N.v.t. op Cloud
+                  </span>
+                )}
               </h2>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span>Totaal Objecten:</span>
-                  <span className="font-mono font-bold text-emerald-400">{stats?.lokaal.totaalObjecten}</span>
+                  <span className="font-mono font-bold text-emerald-400">{stats?.lokaal?.totaalObjecten ?? 0}</span>
                 </div>
                 <div className="flex justify-between text-slate-400 pl-4">
                   <span>- Publiek:</span>
-                  <span className="font-mono">{stats?.lokaal.publiekObjecten}</span>
+                  <span className="font-mono">{stats?.lokaal?.publiekObjecten ?? 0}</span>
                 </div>
                 <div className="flex justify-between text-rose-400 pl-4">
                   <span>- Vertrouwelijk:</span>
-                  <span className="font-mono">{stats?.lokaal.vertrouwelijkObjecten}</span>
+                  <span className="font-mono">{stats?.lokaal?.vertrouwelijkObjecten ?? 0}</span>
                 </div>
                 <hr className="border-slate-700 my-2" />
                 <div className="flex justify-between">
                   <span>Totaal Relaties:</span>
-                  <span className="font-mono font-bold text-emerald-400">{stats?.lokaal.totaalRelaties}</span>
+                  <span className="font-mono font-bold text-emerald-400">{stats?.lokaal?.totaalRelaties ?? 0}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Totaal Parameterwaarden:</span>
-                  <span className="font-mono font-bold text-emerald-400">{stats?.lokaal.totaalParameters}</span>
+                  <span className="font-mono font-bold text-emerald-400">{stats?.lokaal?.totaalParameters ?? 0}</span>
                 </div>
               </div>
             </div>
 
             {/* TURSO CLOUD CARD */}
-            <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 space-y-4">
-              <h2 className="text-xl font-semibold text-slate-200 border-b border-slate-700 pb-2">
-                ☁️ Turso Cloud Database (Publiek)
-              </h2>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span>Gepubliceerde Objecten:</span>
-                  <span className="font-mono font-bold text-sky-400">{stats?.turso.totaalObjecten}</span>
+            <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 space-y-4 flex flex-col justify-between">
+              <div className="space-y-4">
+                <h2 className="text-xl font-semibold text-slate-200 border-b border-slate-700 pb-2">
+                  ☁️ Turso Cloud Database (Publiek)
+                </h2>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span>Gepubliceerde Objecten:</span>
+                    <span className="font-mono font-bold text-sky-400">{stats?.turso?.totaalObjecten ?? 0}</span>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-2">
+                    Toont publieke objecten op Turso. Synchroniseert via Last-Write-Wins (LWW).
+                  </p>
                 </div>
-                <p className="text-xs text-slate-400 mt-2">
-                  Toont publieke objecten op Turso. Synchroniseert via Last-Write-Wins (LWW).
-                </p>
               </div>
 
-              <button
-                onClick={handleSync}
-                disabled={syncing}
-                className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 text-white font-medium rounded-lg transition"
-              >
-                {syncing ? "Bezig met 2-weg synchronisatie..." : "🔄 Start Twee-Weg Sync (LWW)"}
-              </button>
+              <div>
+                <button
+                  onClick={handleSync}
+                  disabled={syncing || isVercel}
+                  className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-500 disabled:border disabled:border-slate-700 disabled:cursor-not-allowed text-white font-medium rounded-lg transition"
+                >
+                  {isVercel
+                    ? "🔒 Sync alleen lokaal beschikbaar"
+                    : syncing
+                    ? "Bezig met 2-weg synchronisatie..."
+                    : "🔄 Start Twee-Weg Sync (LWW)"}
+                </button>
+                {isVercel && (
+                  <p className="text-[11px] text-slate-500 text-center mt-2">
+                    Synchroniseren kan alleen vanuit de lokale desktop-omgeving gestart worden.
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         )}
