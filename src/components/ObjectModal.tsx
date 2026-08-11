@@ -1,8 +1,9 @@
 // src/components/ObjectModal.tsx
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
-import { haalObjectDossierOp, slaObjectDossierOp, haalDefinitiesOp } from "@/app/actions";
+import { useEffect, useState, useMemo, useCallback } from "react";
+import { haalObjectDossierOp, slaObjectDossierOp, haalDefinitiesOp, verplaatsRelatieVolgorde } from "@/app/actions";
+import AddRelationModal from "./AddRelationModal";
 
 interface ObjectModalProps {
     objectId: string | null;
@@ -60,6 +61,31 @@ export default function ObjectModal({
     const [nieuwUitgaandRelId, setNieuwUitgaandRelId] = useState("");
     const [nieuwUitgaandTargetId, setNieuwUitgaandTargetId] = useState("");
 
+    const [isAddRelModalOpen, setIsAddRelModalOpen] = useState(false);
+    const [addRelDirection, setAddRelDirection] = useState<"incoming" | "outgoing">("outgoing");
+
+    // Functie voor het ophalen/verversen van het dossier
+    const laadDossier = useCallback(async (id: string) => {
+        setLoading(true);
+        setError(null);
+        const res = await haalObjectDossierOp(id);
+
+        if (res.success && res.dossier) {
+            const d = res.dossier;
+            setLabel(d.object.label || "");
+            setIsConfidential(Boolean(d.object.isConfidential));
+            setValidFrom(d.object.validFrom ? d.object.validFrom.split("T")[0] : "");
+            setValidTo(d.object.validTo ? d.object.validTo.split("T")[0] : "");
+
+            setParameterValues(d.parameterValues || []);
+            setUitgaandeRelaties(d.uitgaandeRelaties || []);
+            setInkomendeRelaties(d.inkomendeRelaties || []);
+        } else {
+            setError(res.error || "Fout bij ophalen dossier");
+        }
+        setLoading(false);
+    }, []);
+
     // Reset/Instellen van modus zodra modal opent of object veranderd
     useEffect(() => {
         if (isOpen) {
@@ -83,40 +109,12 @@ export default function ObjectModal({
             return;
         }
 
-        let isMounted = true;
-        async function laadDossier() {
-            setLoading(true);
-            setError(null);
-            const res = await haalObjectDossierOp(objectId!);
+        laadDossier(objectId);
+    }, [objectId, isOpen, laadDossier]);
 
-            if (!isMounted) return;
-
-            if (res.success && res.dossier) {
-                const d = res.dossier;
-                setLabel(d.object.label || "");
-                setIsConfidential(Boolean(d.object.isConfidential));
-                setValidFrom(d.object.validFrom ? d.object.validFrom.split("T")[0] : "");
-                setValidTo(d.object.validTo ? d.object.validTo.split("T")[0] : "");
-
-                setParameterValues(d.parameterValues || []);
-                setUitgaandeRelaties(d.uitgaandeRelaties || []);
-                setInkomendeRelaties(d.inkomendeRelaties || []);
-            } else {
-                setError(res.error || "Fout bij ophalen dossier");
-            }
-            setLoading(false);
-        }
-
-        laadDossier();
-
-        return () => {
-            isMounted = false;
-        };
-    }, [objectId, isOpen]);
-
-    // Catalogus definities laden zodra we in 'edit' stand gaan
+    // HIER ZIT DE ENIGE FIX: Haal catalogus definities op zodra de modal OPEN is (ook in View stand!)
     useEffect(() => {
-        if (isOpen && mode === "edit" && defParameters.length === 0) {
+        if (isOpen && defRelations.length === 0) {
             let isMounted = true;
             async function laadCatalogi() {
                 const res = await haalDefinitiesOp();
@@ -130,7 +128,7 @@ export default function ObjectModal({
                 isMounted = false;
             };
         }
-    }, [isOpen, mode, defParameters.length]);
+    }, [isOpen, defRelations.length]);
 
     // Gegroepeerde data voor View-stand
     const ingaandGegroepeerd = useMemo(() => groepeerRelaties(inkomendeRelaties), [inkomendeRelaties]);
@@ -172,8 +170,8 @@ export default function ObjectModal({
             {
                 relationId: nieuwUitgaandRelId,
                 relationLabel: relDef?.label || "Relatie",
-                targetId: nieuwUitgaandTargetId,         // <--- Zorgt dat repository exact targetId krijgt
-                relatedObjectId: nieuwUitgaandTargetId,  // Voor UI navigatie
+                targetId: nieuwUitgaandTargetId,
+                relatedObjectId: nieuwUitgaandTargetId,
                 relatedObjectLabel: nieuwUitgaandTargetId,
                 isConfidential: false,
             },
@@ -181,6 +179,7 @@ export default function ObjectModal({
         setNieuwUitgaandRelId("");
         setNieuwUitgaandTargetId("");
     };
+
     const verwijderUitgaandeRelatie = (index: number) => {
         const item = uitgaandeRelaties[index];
         if (item.relationValueId || item.id) {
@@ -201,7 +200,6 @@ export default function ObjectModal({
         setSaving(true);
         setError(null);
 
-        // Mappen zodat targetId ALTIJD gevuld is voor TypeScript/Database
         const genormaliseerdeUitgaandeRelaties = uitgaandeRelaties.map((rel) => ({
             ...rel,
             targetId: rel.targetId || rel.relatedObjectId,
@@ -230,9 +228,15 @@ export default function ObjectModal({
             setSaving(false);
         }
     };
+    const handleVerplaatsRelatie = async (relationValueId: string, richting: "omhoog" | "omlaag") => {
+        const res = await verplaatsRelatieVolgorde({ relationValueId, richting });
+        if (res.success && objectId) {
+            laadDossier(objectId); // Herlaad de lijst zodat de nieuwe volgorde direct zichtbaar is
+        } else if (res.error) {
+            setError(res.error);
+        }
+    };
 
-
-    // 2. PAS PASSIEVE RETURN ALS ER NIET GERENDERD HOEFT TE WORDEN (NA ALLES HOOKS!)
     if (!isOpen) return null;
 
     return (
@@ -363,9 +367,20 @@ export default function ObjectModal({
                                     <h3 className="font-semibold text-slate-200 text-sm flex items-center gap-1.5">
                                         <span>🏷️</span> Ingaand (Typen & Context)
                                     </h3>
-                                    <span className="bg-slate-700 text-slate-300 text-xs px-2 py-0.5 rounded-full font-mono">
-                                        {inkomendeRelaties.length}
-                                    </span>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => {
+                                                setAddRelDirection("incoming");
+                                                setIsAddRelModalOpen(true);
+                                            }}
+                                            className="text-[11px] bg-slate-700 hover:bg-emerald-600 text-slate-200 hover:text-white px-2 py-0.5 rounded transition"
+                                        >
+                                            + Relatie
+                                        </button>
+                                        <span className="bg-slate-700 text-slate-300 text-xs px-2 py-0.5 rounded-full font-mono">
+                                            {inkomendeRelaties.length}
+                                        </span>
+                                    </div>
                                 </div>
 
                                 <div className="flex-1 overflow-y-auto space-y-2 pr-1 max-h-[55vh]">
@@ -483,84 +498,108 @@ export default function ObjectModal({
                                     <h3 className="font-semibold text-slate-200 text-sm flex items-center gap-1.5">
                                         <span>🔗</span> Uitgaand (Netwerk & Relaties)
                                     </h3>
-                                    <span className="bg-slate-700 text-slate-300 text-xs px-2 py-0.5 rounded-full font-mono">
-                                        {uitgaandeRelaties.length}
-                                    </span>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => {
+                                                setAddRelDirection("outgoing");
+                                                setIsAddRelModalOpen(true);
+                                            }}
+                                            className="text-[11px] bg-slate-700 hover:bg-emerald-600 text-slate-200 hover:text-white px-2 py-0.5 rounded transition"
+                                        >
+                                            + Relatie
+                                        </button>
+                                        <span className="bg-slate-700 text-slate-300 text-xs px-2 py-0.5 rounded-full font-mono">
+                                            {uitgaandeRelaties.length}
+                                        </span>
+                                    </div>
                                 </div>
 
-                                {mode === "edit" && (
-                                    <div className="space-y-1.5 mb-3 bg-slate-950/60 p-2 rounded-lg border border-slate-800">
-                                        <select
-                                            value={nieuwUitgaandRelId}
-                                            onChange={(e) => setNieuwUitgaandRelId(e.target.value)}
-                                            className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200"
-                                        >
-                                            <option value="">1. Kies relatietype...</option>
-                                            {defRelations.map((r) => (
-                                                <option key={r.id} value={r.id}>{r.label}</option>
-                                            ))}
-                                        </select>
-
-                                        <input
-                                            type="text"
-                                            value={nieuwUitgaandTargetId}
-                                            onChange={(e) => setNieuwUitgaandTargetId(e.target.value)}
-                                            placeholder="2. Target Object ID..."
-                                            className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200"
-                                        />
-
-                                        <button
-                                            onClick={voegUitgaandeRelatieToe}
-                                            disabled={!nieuwUitgaandRelId || !nieuwUitgaandTargetId}
-                                            className="w-full py-1 bg-emerald-600 disabled:opacity-40 text-white rounded text-xs font-semibold"
-                                        >
-                                            + Relatie Toevoegen
-                                        </button>
-                                    </div>
-                                )}
-
                                 <div className="flex-1 overflow-y-auto space-y-2 pr-1 max-h-[55vh]">
-                                    {mode === "view" ? (
-                                        Object.keys(uitgaandGegroepeerd).length === 0 ? (
-                                            <p className="text-xs text-slate-500 italic py-4 text-center">Geen uitgaande relaties.</p>
-                                        ) : (
-                                            Object.entries(uitgaandGegroepeerd).map(([relType, rels]) => (
-                                                <div key={relType} className="space-y-1.5">
-                                                    <div className="flex items-center gap-2 border-b border-slate-700/60 pb-1">
-                                                        <span className="text-[11px] font-bold uppercase text-emerald-400">{relType}</span>
-                                                        <span className="text-[10px] text-slate-500 font-mono">({rels.length})</span>
-                                                    </div>
-                                                    <div className="space-y-1 pl-1">
-                                                        {rels.map((rel: any) => (
-                                                            <div key={rel.relationValueId} className="p-2 bg-slate-800 rounded border border-slate-700/50 flex justify-between items-center text-xs">
-                                                                <button onClick={() => onSelectObject && onSelectObject(rel.relatedObjectId)} className="font-medium text-slate-200 hover:text-emerald-300 hover:underline text-left">
-                                                                    ➔ {rel.relatedObjectLabel}
-                                                                </button>
-                                                                {rel.isConfidential && <span className="text-[10px]">🔒</span>}
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            ))
-                                        )
+                                    {uitgaandeRelaties.length === 0 ? (
+                                        <p className="text-xs text-slate-500 italic py-4 text-center">Geen uitgaande relaties.</p>
                                     ) : (
-                                        uitgaandeRelaties.map((rel, index) => (
-                                            <div key={index} className="p-2 bg-slate-800 rounded border border-slate-700/60 text-xs flex justify-between items-center">
-                                                <div>
-                                                    <span className="text-emerald-400 font-semibold block">{rel.relationLabel}</span>
-                                                    <span className="text-slate-200">➔ {rel.relatedObjectLabel || rel.targetId}</span>
+                                        uitgaandeRelaties.map((rel, index) => {
+                                            const isEerste = index === 0;
+                                            const isLaatste = index === uitgaandeRelaties.length - 1;
+                                            const relId = rel.relationValueId || rel.id;
+
+                                            return (
+                                                <div
+                                                    key={relId || index}
+                                                    className="p-2 bg-slate-800 rounded border border-slate-700/60 text-xs flex justify-between items-center gap-2 group hover:border-slate-600 transition"
+                                                >
+                                                    {/* LINKS: Volgorde-knoppen (spinner) */}
+                                                    <div className="flex flex-col gap-0.5 border-r border-slate-700/80 pr-1.5">
+                                                        <button
+                                                            type="button"
+                                                            disabled={isEerste}
+                                                            onClick={() => relId && handleVerplaatsRelatie(relId, "omhoog")}
+                                                            className="text-[9px] leading-none text-slate-400 hover:text-emerald-400 disabled:opacity-20 disabled:hover:text-slate-400 px-1 py-0.5 rounded hover:bg-slate-700 transition"
+                                                            title="Eén plek naar boven"
+                                                        >
+                                                            ▲
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            disabled={isLaatste}
+                                                            onClick={() => relId && handleVerplaatsRelatie(relId, "omlaag")}
+                                                            className="text-[9px] leading-none text-slate-400 hover:text-emerald-400 disabled:opacity-20 disabled:hover:text-slate-400 px-1 py-0.5 rounded hover:bg-slate-700 transition"
+                                                            title="Eén plek naar beneden"
+                                                        >
+                                                            ▼
+                                                        </button>
+                                                    </div>
+
+                                                    {/* MIDDEN: Relatie-informatie */}
+                                                    <div className="flex-1 min-w-0">
+                                                        <span className="text-emerald-400 font-semibold block truncate">
+                                                            {rel.relationLabel}
+                                                        </span>
+                                                        {mode === "view" ? (
+                                                            <button
+                                                                onClick={() => onSelectObject && onSelectObject(rel.relatedObjectId)}
+                                                                className="text-slate-200 hover:text-emerald-300 hover:underline truncate block text-left"
+                                                            >
+                                                                ➔ {rel.relatedObjectLabel || rel.targetId}
+                                                            </button>
+                                                        ) : (
+                                                            <span className="text-slate-300 truncate block">
+                                                                ➔ {rel.relatedObjectLabel || rel.targetId}
+                                                            </span>
+                                                        )}
+                                                    </div>
+
+                                                    {/* RECHTS: Verwijderknop in Edit-modus */}
+                                                    {mode === "edit" && (
+                                                        <button
+                                                            onClick={() => verwijderUitgaandeRelatie(index)}
+                                                            className="text-slate-500 hover:text-rose-400 p-1 rounded"
+                                                            title="Relatie verwijderen"
+                                                        >
+                                                            🗑️
+                                                        </button>
+                                                    )}
                                                 </div>
-                                                <button onClick={() => verwijderUitgaandeRelatie(index)} className="text-slate-500 hover:text-rose-400">
-                                                    🗑️
-                                                </button>
-                                            </div>
-                                        ))
+                                            );
+                                        })
                                     )}
                                 </div>
                             </div>
 
                         </div>
                     )}
+
+                    {/* ADD RELATION MODAL COMPONENT */}
+                    <AddRelationModal
+                        isOpen={isAddRelModalOpen}
+                        onClose={() => setIsAddRelModalOpen(false)}
+                        currentObjectId={objectId!}
+                        direction={addRelDirection}
+                        availableRelationTypes={defRelations}
+                        onSuccess={() => {
+                            if (objectId) laadDossier(objectId);
+                        }}
+                    />
                 </div>
 
                 {/* FOOTER */}

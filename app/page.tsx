@@ -41,17 +41,20 @@ export default function Home() {
     await laadData();
     setSyncing(false);
   };
-
-  const handleZoeken = async (term: string) => {
+const handleZoeken = async (term: string) => {
     setZoekterm(term);
     if (term.length > 1) {
       const res = await zoekObjecten(term);
-      setZoekResultaten(res);
+      // 🎯 Pak de 'objecten' array uit het resultaat-object
+      if (res.success && Array.isArray(res.objecten)) {
+        setZoekResultaten(res.objecten);
+      } else {
+        setZoekResultaten([]);
+      }
     } else {
       setZoekResultaten([]);
     }
   };
-
   // Route 1: Openen bestaand object
   const handleOpenObject = (id: string) => {
     setSelectedObjectId(id);
