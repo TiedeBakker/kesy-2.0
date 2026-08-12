@@ -4,6 +4,8 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { haalObjectDossierOp, slaObjectDossierOp, haalDefinitiesOp, verplaatsRelatieVolgorde } from "@/app/actions";
 import AddRelationModal from "./AddRelationModal";
+import BatchAddObjectsModal from "@/src/components/BatchAddObjectsModal";
+import EditRelationModal from "@/src/components/EditRelationModal";
 
 interface ObjectModalProps {
     objectId: string | null;
@@ -221,8 +223,18 @@ export default function ObjectModal({
         const res = await slaObjectDossierOp(payload);
         if (res.success) {
             setSaving(false);
+
+            // 1. Licht de aanroepende pagina wel in om de achtergrond/zoeklijst te verversen
             if (onSaveSuccess) onSaveSuccess();
-            onClose();
+
+            // 2. Als we een bestaand object bewerkt hebben:
+            if (objectId) {
+                await laadDossier(objectId); // Herlaad de nieuwste gegevens
+                setMode("view");            // 🎯 Blijf in de modal, schakel naar View-stand!
+            } else {
+                // Was het een gloednieuw object? Sluit dan wél de modal.
+                onClose();
+            }
         } else {
             setError(res.error || "Fout bij opslaan van het dossier");
             setSaving(false);
@@ -236,6 +248,8 @@ export default function ObjectModal({
             setError(res.error);
         }
     };
+    const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
+    const [editingRelation, setEditingRelation] = useState<any | null>(null);
 
     if (!isOpen) return null;
 
@@ -390,17 +404,38 @@ export default function ObjectModal({
                                         ) : (
                                             Object.entries(ingaandGegroepeerd).map(([relType, rels]) => (
                                                 <div key={relType} className="space-y-1.5">
+                                                    {/* Header per type */}
                                                     <div className="flex items-center gap-2 border-b border-slate-700/60 pb-1">
                                                         <span className="text-[11px] font-bold uppercase text-sky-400">{relType}</span>
                                                         <span className="text-[10px] text-slate-500 font-mono">({rels.length})</span>
                                                     </div>
+
+                                                    {/* Items per type */}
                                                     <div className="space-y-1 pl-1">
                                                         {rels.map((rel: any) => (
-                                                            <div key={rel.relationValueId} className="p-2 bg-slate-800 rounded border border-slate-700/50 flex justify-between items-center text-xs">
-                                                                <button onClick={() => onSelectObject && onSelectObject(rel.relatedObjectId)} className="font-medium text-slate-200 hover:text-sky-300 hover:underline text-left">
-                                                                    {rel.relatedObjectLabel}
+                                                            <div
+                                                                key={rel.relationValueId || rel.id}
+                                                                className="p-2 bg-slate-800 rounded border border-slate-700/50 flex justify-between items-center text-xs gap-2 hover:border-slate-600 transition"
+                                                            >
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => onSelectObject && onSelectObject(rel.relatedObjectId)}
+                                                                    className="font-medium text-slate-200 hover:text-sky-300 hover:underline text-left truncate flex-1 min-w-0"
+                                                                >
+                                                                    ➔ {rel.relatedObjectLabel}
                                                                 </button>
-                                                                {rel.isConfidential && <span className="text-[10px]">🔒</span>}
+
+                                                                {rel.isConfidential && <span className="text-[10px]" title="Vertrouwelijk">🔒</span>}
+
+                                                                {/* ✏️ BEWERK KNOP (VIEW MODUS) */}
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setEditingRelation(rel)}
+                                                                    className="text-slate-400 hover:text-sky-400 p-1 rounded transition"
+                                                                    title="Relatie bewerken"
+                                                                >
+                                                                    ✏️
+                                                                </button>
                                                             </div>
                                                         ))}
                                                     </div>
@@ -408,14 +443,38 @@ export default function ObjectModal({
                                             ))
                                         )
                                     ) : (
-                                        inkomendeRelaties.map((rel, idx) => (
-                                            <div key={idx} className="p-2 bg-slate-800/80 rounded border border-slate-700 text-xs flex justify-between items-center">
-                                                <div>
-                                                    <span className="text-sky-400 font-semibold block">{rel.relationLabel}</span>
-                                                    <span className="text-slate-200">{rel.relatedObjectLabel}</span>
+                                        /* Edit / Non-view Modus */
+                                        inkomendeRelaties.length === 0 ? (
+                                            <p className="text-xs text-slate-500 italic py-4 text-center">Geen ingaande relaties.</p>
+                                        ) : (
+                                            inkomendeRelaties.map((rel, idx) => (
+                                                <div
+                                                    key={rel.relationValueId || rel.id || idx}
+                                                    className="p-2 bg-slate-800/80 rounded border border-slate-700 text-xs flex justify-between items-center gap-2"
+                                                >
+                                                    <div className="flex-1 min-w-0">
+                                                        <span className="text-sky-400 font-semibold block truncate">
+                                                            {rel.relationLabel}
+                                                        </span>
+                                                        <span className="text-slate-200 truncate block">
+                                                            ➔ {rel.relatedObjectLabel}
+                                                        </span>
+                                                    </div>
+
+                                                    {rel.isConfidential && <span className="text-[10px]">🔒</span>}
+
+                                                    {/* ✏️ BEWERK KNOP (EDIT MODUS) */}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setEditingRelation(rel)}
+                                                        className="text-slate-400 hover:text-sky-400 p-1 rounded transition"
+                                                        title="Relatie bewerken"
+                                                    >
+                                                        ✏️
+                                                    </button>
                                                 </div>
-                                            </div>
-                                        ))
+                                            ))
+                                        )
                                     )}
                                 </div>
                             </div>
@@ -508,6 +567,17 @@ export default function ObjectModal({
                                         >
                                             + Relatie
                                         </button>
+                                        {/* 📚 NIEUWE BATCH KNOP */}
+                                        {objectId && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setIsBatchModalOpen(true)}
+                                                className="text-[11px] bg-sky-950 border border-sky-700/80 hover:bg-sky-800 text-sky-200 px-2 py-0.5 rounded transition"
+                                                title="Batch nieuwe objecten maken en koppelen"
+                                            >
+                                                📚 + Batch
+                                            </button>
+                                        )}
                                         <span className="bg-slate-700 text-slate-300 text-xs px-2 py-0.5 rounded-full font-mono">
                                             {uitgaandeRelaties.length}
                                         </span>
@@ -568,7 +638,14 @@ export default function ObjectModal({
                                                             </span>
                                                         )}
                                                     </div>
-
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setEditingRelation(rel)}
+                                                        className="text-slate-400 hover:text-sky-400 p-1 rounded"
+                                                        title="Relatie bewerken"
+                                                    >
+                                                        ✏️
+                                                    </button>
                                                     {/* RECHTS: Verwijderknop in Edit-modus */}
                                                     {mode === "edit" && (
                                                         <button
@@ -600,6 +677,26 @@ export default function ObjectModal({
                             if (objectId) laadDossier(objectId);
                         }}
                     />
+
+                    {
+                        objectId && (
+                            <BatchAddObjectsModal
+                                isOpen={isBatchModalOpen}
+                                onClose={() => setIsBatchModalOpen(false)}
+                                sourceObjectId={objectId!}
+                                onSuccess={() => laadDossier(objectId!)}
+                            />
+                        )
+                    }
+                    <EditRelationModal
+                        isOpen={Boolean(editingRelation)}
+                        onClose={() => setEditingRelation(null)}
+                        relationValue={editingRelation}
+                        availableRelationTypes={defRelations}
+                        onSuccess={() => {
+                            if (objectId) laadDossier(objectId);
+                        }}
+                    />
                 </div>
 
                 {/* FOOTER */}
@@ -623,5 +720,7 @@ export default function ObjectModal({
 
             </div>
         </div>
+
     );
 }
+

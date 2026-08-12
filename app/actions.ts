@@ -303,3 +303,159 @@ export async function verplaatsRelatieVolgorde(data: {
     return { success: false, error: error.message };
   }
 }
+// app/actions.ts
+
+export async function batchMakenEnKoppelen(data: {
+    sourceId: string;
+    relationId: string;
+    objectLabels: string[]; // De gefine-tunede namen uit de modal
+}) {
+    try {
+        const { sourceId, relationId, objectLabels } = data;
+        const client = activeDb || db;
+        if (!client) return { success: false, error: "Geen actieve database." };
+
+        // 1. Controleer of het bron-object bestaat en wat zijn vertrouwelijkheid is
+        const sourceObj = await client.query.objects.findFirst({
+            where: eq(schema.objects.id, sourceId),
+        });
+
+        if (!sourceObj) {
+            return { success: false, error: "Bron-object niet gevonden." };
+        }
+
+        // 2. Bepaal het hoogste volgnummer voor uitgaande relaties vanaf dit sourceId
+        const bestaandeRelaties = await client
+            .select({ maxVolgorde: max(schema.relationValues.volgorde) })
+            .from(schema.relationValues)
+            .where(eq(schema.relationValues.sourceId, sourceId));
+
+        let startVolgorde = (bestaandeRelaties[0]?.maxVolgorde ?? 0) + 1;
+        const nu = new Date().toISOString();
+        const aangemaakteIds: string[] = [];
+
+        // 3. Lus door de objectlabels en maak object + relatie aan
+        for (const label of objectLabels) {
+            if (!label.trim()) continue;
+
+            const nieuwObjectId = uuidv7();
+            const nieuwRelationValueId = uuidv7();
+
+            // A. Maak het nieuwe target-object aan
+            await client.insert(schema.objects).values({
+                id: nieuwObjectId,
+                label: label.trim(),
+                isConfidential: sourceObj.isConfidential, // Neemt vertrouwelijkheid over van bron
+                validFrom: nu,
+                createdAt: nu,
+                updatedAt: nu,
+            });
+
+            // B. Maak de relatie-waarde aan
+            await client.insert(schema.relationValues).values({
+                id: nieuwRelationValueId,
+                relationId,
+                sourceId,
+                targetId: nieuwObjectId,
+                volgorde: startVolgorde,
+                isConfidential: sourceObj.isConfidential,
+                validFrom: nu,
+                createdAt: nu,
+                updatedAt: nu,
+            });
+
+            startVolgorde++;
+            aangemaakteIds.push(nieuwObjectId);
+        }
+
+        return { success: true, count: aangemaakteIds.length };
+    } catch (error: any) {
+        console.error("Fout bij batch aanmaken:", error);
+        return { success: false, error: error.message };
+    }
+}
+// app/actions.ts
+
+// Hulpfunctie: Hernummer de uitgaande relaties van een sourceId strak vanaf 1
+async function hernummerVolgordeVoorSource(client: any, sourceId: string) {
+    const relaties = await client
+        .select({ id: schema.relationValues.id })
+        .from(schema.relationValues)
+        .where(eq(schema.relationValues.sourceId, sourceId))
+        .orderBy(schema.relationValues.volgorde);
+
+    const nu = new Date().toISOString();
+    for (let i = 0; i < relaties.length; i++) {
+        await client
+            .update(schema.relationValues)
+            .set({ volgorde: i + 1, updatedAt: nu })
+            .where(eq(schema.relationValues.id, relaties[i].id));
+    }
+}
+
+// 1 & 2. Server Action om relatietype of richting aan te passen
+export async function bewerkRelatie(data: {
+    relationValueId: string;
+    nieuwRelationId?: string;
+    wisselRichting?: boolean;
+}) {
+    try {
+        const client = activeDb || db;
+        if (!client) return { success: false, error: "Geen actieve database." };
+
+        // 1. Haal huidige relatie op
+        const [huidige] = await client
+            .select()
+            .from(schema.relationValues)
+            .where(eq(schema.relationValues.id, data.relationValueId));
+
+        if (!huidige) {
+            return { success: false, error: "Relatie niet gevonden." };
+        }
+
+        const nu = new Date().toISOString();
+        let updateData: any = { updatedAt: nu };
+
+        if (data.nieuwRelationId) {
+            updateData.relationId = data.nieuwRelationId;
+        }
+
+        // Als richting moet worden omgedraaid (Source ↔ Target)
+        if (data.wisselRichting) {
+            const oudeSourceId = huidige.sourceId;
+            const nieuweSourceId = huidige.targetId;
+
+            // Bepaal de nieuwe volgorde achteraan bij de nieuwe source
+            const bestaandeBijNieuweSource = await client
+                .select({ maxVolgorde: max(schema.relationValues.volgorde) })
+                .from(schema.relationValues)
+                .where(eq(schema.relationValues.sourceId, nieuweSourceId));
+
+            const nieuweVolgorde = (bestaandeBijNieuweSource[0]?.maxVolgorde ?? 0) + 1;
+
+            updateData.sourceId = nieuweSourceId;
+            updateData.targetId = oudeSourceId;
+            updateData.volgorde = nieuweVolgorde;
+
+            // Voer de update uit
+            await client
+                .update(schema.relationValues)
+                .set(updateData)
+                .where(eq(schema.relationValues.id, data.relationValueId));
+
+            // Hernummer de overgebleven relaties van de OUDE source
+            await hernummerVolgordeVoorSource(client, oudeSourceId);
+        } else {
+            // Normale update (alleen relatietype veranderd)
+            await client
+                .update(schema.relationValues)
+                .set(updateData)
+                .where(eq(schema.relationValues.id, data.relationValueId));
+        }
+
+        return { success: true };
+    } catch (error: any) {
+        console.error("Fout bij bewerken relatie:", error);
+        return { success: false, error: error.message };
+    }
+}
