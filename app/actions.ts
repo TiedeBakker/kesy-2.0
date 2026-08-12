@@ -188,13 +188,22 @@ export async function voegRelatieToe(data: {
   try {
     const { sourceId, targetId, relationId } = data;
 
-    // 1. Haal vertrouwelijkheid van beide objecten op
-    const sourceObj = await db.query.objects.findFirst({
-      where: eq(objects.id, sourceId),
-    });
-    const targetObj = await db.query.objects.findFirst({
-      where: eq(objects.id, targetId),
-    });
+    // 1. Bepaal de actieve DB client (werkt zowel lokaal als op Vercel/Turso)
+    const client = activeDb || db;
+    if (!client) {
+      return { success: false, error: "Geen actieve database-verbinding." };
+    }
+
+    // 2. Haal vertrouwelijkheid van beide objecten op
+    const [sourceObj] = await client
+      .select({ isConfidential: schema.objects.isConfidential })
+      .from(schema.objects)
+      .where(eq(schema.objects.id, sourceId));
+
+    const [targetObj] = await client
+      .select({ isConfidential: schema.objects.isConfidential })
+      .from(schema.objects)
+      .where(eq(schema.objects.id, targetId));
 
     if (!sourceObj || !targetObj) {
       return { success: false, error: "Source of Target object niet gevonden." };
@@ -203,27 +212,27 @@ export async function voegRelatieToe(data: {
     // Regels: Alleen publiek (false) als BEIDE publiek zijn
     const isConfidential = Boolean(sourceObj.isConfidential || targetObj.isConfidential);
 
-    // 2. Bepaal volgorde op basis van de uitgaande relaties van het source-object
-    const bestaandeRelaties = await db
-      .select({ maxVolgorde: max(relationValues.volgorde) })
-      .from(relationValues)
-      .where(eq(relationValues.sourceId, sourceId));
+    // 3. Bepaal volgorde op basis van de uitgaande relaties van het source-object
+    const bestaandeRelaties = await client
+      .select({ maxVolgorde: max(schema.relationValues.volgorde) })
+      .from(schema.relationValues)
+      .where(eq(schema.relationValues.sourceId, sourceId));
 
     const hoogsteVolgorde = bestaandeRelaties[0]?.maxVolgorde ?? 0;
     const nieuweVolgorde = hoogsteVolgorde + 1;
 
-    // 3. Voeg relation_value toe
+    // 4. Voeg relation_value toe
     const nieuwId = uuidv7();
     const nu = new Date().toISOString();
 
-    await db.insert(relationValues).values({
+    await client.insert(schema.relationValues).values({
       id: nieuwId,
       relationId,
       sourceId,
       targetId,
       volgorde: nieuweVolgorde,
       isConfidential,
-      validFrom: nu, // 👈 DIT MISTE: Vul de verplichte NOT NULL valid_from kolom in
+      validFrom: nu,
       createdAt: nu,
       updatedAt: nu,
     });
