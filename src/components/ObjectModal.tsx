@@ -6,6 +6,8 @@ import { haalObjectDossierOp, slaObjectDossierOp, haalDefinitiesOp, verplaatsRel
 import AddRelationModal from "./AddRelationModal";
 import BatchAddObjectsModal from "@/src/components/BatchAddObjectsModal";
 import EditRelationModal from "@/src/components/EditRelationModal";
+import AddParameterValuesModal from "@/src/components/AddParameterValuesModal";
+import EditParameterValueModal from "./EditParameterValueModal";
 
 interface ObjectModalProps {
     objectId: string | null;
@@ -60,11 +62,15 @@ export default function ObjectModal({
 
     // Nieuwe item selectors state
     const [nieuwParamId, setNieuwParamId] = useState("");
-    const [nieuwUitgaandRelId, setNieuwUitgaandRelId] = useState("");
-    const [nieuwUitgaandTargetId, setNieuwUitgaandTargetId] = useState("");
 
+    // Modals state
     const [isAddRelModalOpen, setIsAddRelModalOpen] = useState(false);
     const [addRelDirection, setAddRelDirection] = useState<"incoming" | "outgoing">("outgoing");
+    const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
+    const [editingRelation, setEditingRelation] = useState<any | null>(null);
+
+    // 📊 Nieuwe Parameter Modal State
+    const [isParamModalOpen, setIsParamModalOpen] = useState(false);
 
     // Functie voor het ophalen/verversen van het dossier
     const laadDossier = useCallback(async (id: string) => {
@@ -114,7 +120,7 @@ export default function ObjectModal({
         laadDossier(objectId);
     }, [objectId, isOpen, laadDossier]);
 
-    // HIER ZIT DE ENIGE FIX: Haal catalogus definities op zodra de modal OPEN is (ook in View stand!)
+    // Haal catalogus definities op zodra de modal OPEN is
     useEffect(() => {
         if (isOpen && defRelations.length === 0) {
             let isMounted = true;
@@ -134,7 +140,25 @@ export default function ObjectModal({
 
     // Gegroepeerde data voor View-stand
     const ingaandGegroepeerd = useMemo(() => groepeerRelaties(inkomendeRelaties), [inkomendeRelaties]);
-    const uitgaandGegroepeerd = useMemo(() => groepeerRelaties(uitgaandeRelaties), [uitgaandeRelaties]);
+
+    // 📊 TWEEDELING PARAMETERS: Geldige eigenschappen vs Meetwaarden/Historie
+    const { geldigeEigenschappen, meetwaarden } = useMemo(() => {
+        const geldige: any[] = [];
+        const metingen: any[] = [];
+
+        parameterValues.forEach((param) => {
+            const isMeting = param.isMeetwaarde || (param.validFrom && param.validTo && param.validFrom === param.validTo);
+            const isInactief = Boolean(param.validTo);
+
+            if (isMeting || isInactief) {
+                metingen.push(param);
+            } else {
+                geldige.push(param);
+            }
+        });
+
+        return { geldigeEigenschappen: geldige, meetwaarden: metingen };
+    }, [parameterValues]);
 
     // --- ACTIES VOOR EDITING ---
     const voegParameterToe = () => {
@@ -155,31 +179,14 @@ export default function ObjectModal({
         setNieuwParamId("");
     };
 
-    const verwijderParameter = (index: number) => {
-        const item = parameterValues[index];
-        if (item.id) {
-            setVerwijderdeParameterValueIds((prev) => [...prev, item.id]);
+    const verwijderParameter = (paramIdToRemove: string, originalIndex?: number) => {
+        if (originalIndex !== undefined) {
+            const item = parameterValues[originalIndex];
+            if (item && item.id) {
+                setVerwijderdeParameterValueIds((prev) => [...prev, item.id]);
+            }
+            setParameterValues((prev) => prev.filter((_, i) => i !== originalIndex));
         }
-        setParameterValues((prev) => prev.filter((_, i) => i !== index));
-    };
-
-    const voegUitgaandeRelatieToe = () => {
-        if (!nieuwUitgaandRelId || !nieuwUitgaandTargetId) return;
-        const relDef = defRelations.find((r) => r.id === nieuwUitgaandRelId);
-
-        setUitgaandeRelaties((prev) => [
-            ...prev,
-            {
-                relationId: nieuwUitgaandRelId,
-                relationLabel: relDef?.label || "Relatie",
-                targetId: nieuwUitgaandTargetId,
-                relatedObjectId: nieuwUitgaandTargetId,
-                relatedObjectLabel: nieuwUitgaandTargetId,
-                isConfidential: false,
-            },
-        ]);
-        setNieuwUitgaandRelId("");
-        setNieuwUitgaandTargetId("");
     };
 
     const verwijderUitgaandeRelatie = (index: number) => {
@@ -224,15 +231,12 @@ export default function ObjectModal({
         if (res.success) {
             setSaving(false);
 
-            // 1. Licht de aanroepende pagina wel in om de achtergrond/zoeklijst te verversen
             if (onSaveSuccess) onSaveSuccess();
 
-            // 2. Als we een bestaand object bewerkt hebben:
             if (objectId) {
-                await laadDossier(objectId); // Herlaad de nieuwste gegevens
-                setMode("view");            // 🎯 Blijf in de modal, schakel naar View-stand!
+                await laadDossier(objectId);
+                setMode("view");
             } else {
-                // Was het een gloednieuw object? Sluit dan wél de modal.
                 onClose();
             }
         } else {
@@ -240,16 +244,71 @@ export default function ObjectModal({
             setSaving(false);
         }
     };
+
     const handleVerplaatsRelatie = async (relationValueId: string, richting: "omhoog" | "omlaag") => {
         const res = await verplaatsRelatieVolgorde({ relationValueId, richting });
         if (res.success && objectId) {
-            laadDossier(objectId); // Herlaad de lijst zodat de nieuwe volgorde direct zichtbaar is
+            laadDossier(objectId);
         } else if (res.error) {
             setError(res.error);
         }
     };
-    const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
-    const [editingRelation, setEditingRelation] = useState<any | null>(null);
+
+    const renderParameterCard = (param: any, originalIndex: number) => (
+        <div key={param.id || originalIndex} className="p-2 bg-slate-800 rounded border border-slate-700/60 text-xs space-y-1">
+            <div className="flex justify-between items-center">
+                <span className="text-[11px] font-semibold text-sky-400">{param.label}</span>
+                <div className="flex items-center gap-1">
+                    {param.id && (
+                        <button
+                            type="button"
+                            onClick={() => setEditingParameterValue(param)}
+                            className="text-slate-400 hover:text-sky-400 text-xs px-1"
+                            title="Parameterwaarde bewerken"
+                        >
+                            ✏️
+                        </button>
+                    )}
+                    {mode === "edit" && (
+                        <button onClick={() => verwijderParameter(param.id, originalIndex)} className="text-slate-500 hover:text-rose-400 text-xs px-1">
+                            🗑️
+                        </button>
+                    )}
+                </div>
+            </div>
+            {mode === "edit" ? (
+                <div className="flex gap-1 items-center">
+                    <input
+                        type="text"
+                        value={param.value || ""}
+                        onChange={(e) => {
+                            const val = e.target.value;
+                            setParameterValues((prev) => {
+                                const copy = [...prev];
+                                copy[originalIndex] = { ...copy[originalIndex], value: val };
+                                return copy;
+                            });
+                        }}
+                        placeholder="Waarde invoeren..."
+                        className="flex-1 px-2 py-1 bg-slate-950 border border-slate-700 rounded text-slate-100 text-xs focus:border-sky-500 outline-none"
+                    />
+                    {param.unit && <span className="text-[10px] text-slate-400">{param.unit}</span>}
+                </div>
+            ) : (
+                <div className="flex justify-between items-baseline">
+                    <span className="font-semibold text-slate-100 truncate pr-2">
+                        {param.value} {param.unit ? <span className="text-[10px] text-slate-400">{param.unit}</span> : ""}
+                    </span>
+                    {param.validFrom && (
+                        <span className="text-[9px] text-slate-500 font-mono">
+                            {param.validFrom.split("T")[0]}
+                        </span>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+    const [editingParameterValue, setEditingParameterValue] = useState<any | null>(null);
 
     if (!isOpen) return null;
 
@@ -404,13 +463,11 @@ export default function ObjectModal({
                                         ) : (
                                             Object.entries(ingaandGegroepeerd).map(([relType, rels]) => (
                                                 <div key={relType} className="space-y-1.5">
-                                                    {/* Header per type */}
                                                     <div className="flex items-center gap-2 border-b border-slate-700/60 pb-1">
                                                         <span className="text-[11px] font-bold uppercase text-sky-400">{relType}</span>
                                                         <span className="text-[10px] text-slate-500 font-mono">({rels.length})</span>
                                                     </div>
 
-                                                    {/* Items per type */}
                                                     <div className="space-y-1 pl-1">
                                                         {rels.map((rel: any) => (
                                                             <div
@@ -427,7 +484,6 @@ export default function ObjectModal({
 
                                                                 {rel.isConfidential && <span className="text-[10px]" title="Vertrouwelijk">🔒</span>}
 
-                                                                {/* ✏️ BEWERK KNOP (VIEW MODUS) */}
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => setEditingRelation(rel)}
@@ -443,7 +499,6 @@ export default function ObjectModal({
                                             ))
                                         )
                                     ) : (
-                                        /* Edit / Non-view Modus */
                                         inkomendeRelaties.length === 0 ? (
                                             <p className="text-xs text-slate-500 italic py-4 text-center">Geen ingaande relaties.</p>
                                         ) : (
@@ -463,7 +518,6 @@ export default function ObjectModal({
 
                                                     {rel.isConfidential && <span className="text-[10px]">🔒</span>}
 
-                                                    {/* ✏️ BEWERK KNOP (EDIT MODUS) */}
                                                     <button
                                                         type="button"
                                                         onClick={() => setEditingRelation(rel)}
@@ -479,25 +533,37 @@ export default function ObjectModal({
                                 </div>
                             </div>
 
-                            {/* KOLOM 2: PARAMETERS */}
-                            <div className="flex flex-col bg-slate-800/40 border border-slate-800 rounded-xl p-4 min-h-0">
-                                <div className="flex justify-between items-center mb-2">
+                            {/* KOLOM 2: PARAMETERS (GESPLITST IN EIGENSCHAPPEN & MEETWAARDEN) */}
+                            <div className="flex flex-col bg-slate-800/40 border border-slate-800 rounded-xl p-4 min-h-0 space-y-3">
+                                <div className="flex justify-between items-center">
                                     <h3 className="font-semibold text-slate-200 text-sm flex items-center gap-1.5">
                                         <span>📊</span> Eigenschappen & Parameters
                                     </h3>
-                                    <span className="bg-slate-700 text-slate-300 text-xs px-2 py-0.5 rounded-full font-mono">
-                                        {parameterValues.length}
-                                    </span>
+                                    <div className="flex items-center gap-2">
+                                        {objectId && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setIsParamModalOpen(true)}
+                                                className="text-[11px] bg-slate-700 hover:bg-emerald-600 text-slate-200 hover:text-white px-2 py-0.5 rounded transition"
+                                                title="Invoeren via Sets of Losse Parameters"
+                                            >
+                                                + Parameters
+                                            </button>
+                                        )}
+                                        <span className="bg-slate-700 text-slate-300 text-xs px-2 py-0.5 rounded-full font-mono">
+                                            {parameterValues.length}
+                                        </span>
+                                    </div>
                                 </div>
 
                                 {mode === "edit" && (
-                                    <div className="flex gap-1.5 mb-3">
+                                    <div className="flex gap-1.5">
                                         <select
                                             value={nieuwParamId}
                                             onChange={(e) => setNieuwParamId(e.target.value)}
                                             className="flex-1 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200 focus:outline-none"
                                         >
-                                            <option value="">+ Kies parameter...</option>
+                                            <option value="">+ Kies losse parameter...</option>
                                             {defParameters.map((p) => (
                                                 <option key={p.id} value={p.id}>{p.label} ({p.code})</option>
                                             ))}
@@ -508,46 +574,42 @@ export default function ObjectModal({
                                     </div>
                                 )}
 
-                                <div className="flex-1 overflow-y-auto space-y-2 pr-1 max-h-[55vh]">
-                                    {parameterValues.length === 0 ? (
-                                        <p className="text-xs text-slate-500 italic py-4 text-center">Geen parameters vastgelegd.</p>
-                                    ) : (
-                                        parameterValues.map((param, index) => (
-                                            <div key={index} className="p-2 bg-slate-800 rounded border border-slate-700/60 text-xs space-y-1">
-                                                <div className="flex justify-between items-center">
-                                                    <span className="text-[11px] font-semibold text-sky-400">{param.label}</span>
-                                                    {mode === "edit" && (
-                                                        <button onClick={() => verwijderParameter(index)} className="text-slate-500 hover:text-rose-400 text-xs">
-                                                            🗑️
-                                                        </button>
-                                                    )}
-                                                </div>
-                                                {mode === "edit" ? (
-                                                    <div className="flex gap-1 items-center">
-                                                        <input
-                                                            type="text"
-                                                            value={param.value || ""}
-                                                            onChange={(e) => {
-                                                                const val = e.target.value;
-                                                                setParameterValues((prev) => {
-                                                                    const copy = [...prev];
-                                                                    copy[index] = { ...copy[index], value: val };
-                                                                    return copy;
-                                                                });
-                                                            }}
-                                                            placeholder="Waarde invoeren..."
-                                                            className="flex-1 px-2 py-1 bg-slate-950 border border-slate-700 rounded text-slate-100 text-xs focus:border-sky-500 outline-none"
-                                                        />
-                                                        {param.unit && <span className="text-[10px] text-slate-400">{param.unit}</span>}
-                                                    </div>
-                                                ) : (
-                                                    <span className="font-semibold text-slate-100 block">
-                                                        {param.value} {param.unit ? <span className="text-[10px] text-slate-400">{param.unit}</span> : ""}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        ))
-                                    )}
+                                {/* SECTIE 1: GELDIGE EIGENSCHAPPEN */}
+                                <div className="flex flex-col flex-1 min-h-0">
+                                    <div className="flex items-center justify-between border-b border-slate-700/60 pb-1 mb-1.5">
+                                        <span className="text-[11px] font-bold uppercase text-sky-400">Geldige Eigenschappen</span>
+                                        <span className="text-[10px] text-slate-400 font-mono">({geldigeEigenschappen.length})</span>
+                                    </div>
+
+                                    <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 max-h-[22vh]">
+                                        {geldigeEigenschappen.length === 0 ? (
+                                            <p className="text-xs text-slate-500 italic py-2 text-center">Geen actieve eigenschappen.</p>
+                                        ) : (
+                                            geldigeEigenschappen.map((param) => {
+                                                const originalIdx = parameterValues.findIndex((p) => p === param);
+                                                return renderParameterCard(param, originalIdx);
+                                            })
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* SECTIE 2: MEETWAARDEN & HISTORIE */}
+                                <div className="flex flex-col flex-1 min-h-0 border-t border-slate-800 pt-2">
+                                    <div className="flex items-center justify-between border-b border-slate-700/60 pb-1 mb-1.5">
+                                        <span className="text-[11px] font-bold uppercase text-amber-400">Meetwaarden & Historie</span>
+                                        <span className="text-[10px] text-slate-400 font-mono">({meetwaarden.length})</span>
+                                    </div>
+
+                                    <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 max-h-[22vh]">
+                                        {meetwaarden.length === 0 ? (
+                                            <p className="text-xs text-slate-500 italic py-2 text-center">Geen meetwaarden vastgelegd.</p>
+                                        ) : (
+                                            meetwaarden.map((param) => {
+                                                const originalIdx = parameterValues.findIndex((p) => p === param);
+                                                return renderParameterCard(param, originalIdx);
+                                            })
+                                        )}
+                                    </div>
                                 </div>
                             </div>
 
@@ -567,7 +629,6 @@ export default function ObjectModal({
                                         >
                                             + Relatie
                                         </button>
-                                        {/* 📚 NIEUWE BATCH KNOP */}
                                         {objectId && (
                                             <button
                                                 type="button"
@@ -598,7 +659,6 @@ export default function ObjectModal({
                                                     key={relId || index}
                                                     className="p-2 bg-slate-800 rounded border border-slate-700/60 text-xs flex justify-between items-center gap-2 group hover:border-slate-600 transition"
                                                 >
-                                                    {/* LINKS: Volgorde-knoppen (spinner) */}
                                                     <div className="flex flex-col gap-0.5 border-r border-slate-700/80 pr-1.5">
                                                         <button
                                                             type="button"
@@ -620,7 +680,6 @@ export default function ObjectModal({
                                                         </button>
                                                     </div>
 
-                                                    {/* MIDDEN: Relatie-informatie */}
                                                     <div className="flex-1 min-w-0">
                                                         <span className="text-emerald-400 font-semibold block truncate">
                                                             {rel.relationLabel}
@@ -646,7 +705,6 @@ export default function ObjectModal({
                                                     >
                                                         ✏️
                                                     </button>
-                                                    {/* RECHTS: Verwijderknop in Edit-modus */}
                                                     {mode === "edit" && (
                                                         <button
                                                             onClick={() => verwijderUitgaandeRelatie(index)}
@@ -666,7 +724,7 @@ export default function ObjectModal({
                         </div>
                     )}
 
-                    {/* ADD RELATION MODAL COMPONENT */}
+                    {/* MODAL COMPONENTEN */}
                     <AddRelationModal
                         isOpen={isAddRelModalOpen}
                         onClose={() => setIsAddRelModalOpen(false)}
@@ -678,16 +736,15 @@ export default function ObjectModal({
                         }}
                     />
 
-                    {
-                        objectId && (
-                            <BatchAddObjectsModal
-                                isOpen={isBatchModalOpen}
-                                onClose={() => setIsBatchModalOpen(false)}
-                                sourceObjectId={objectId!}
-                                onSuccess={() => laadDossier(objectId!)}
-                            />
-                        )
-                    }
+                    {objectId && (
+                        <BatchAddObjectsModal
+                            isOpen={isBatchModalOpen}
+                            onClose={() => setIsBatchModalOpen(false)}
+                            sourceObjectId={objectId!}
+                            onSuccess={() => laadDossier(objectId!)}
+                        />
+                    )}
+
                     <EditRelationModal
                         isOpen={Boolean(editingRelation)}
                         onClose={() => setEditingRelation(null)}
@@ -697,6 +754,18 @@ export default function ObjectModal({
                             if (objectId) laadDossier(objectId);
                         }}
                     />
+
+                    {/* 📊 BATCH PARAMETER WAARDEN MODAL */}
+                    {objectId && (
+                        <AddParameterValuesModal
+                            isOpen={isParamModalOpen}
+                            onClose={() => setIsParamModalOpen(false)}
+                            targetId={objectId}
+                            targetType="object"
+                            targetLabel={label}
+                            onSuccess={() => laadDossier(objectId)}
+                        />
+                    )}
                 </div>
 
                 {/* FOOTER */}
@@ -719,8 +788,15 @@ export default function ObjectModal({
                 </div>
 
             </div>
+            <EditParameterValueModal
+                isOpen={Boolean(editingParameterValue)}
+                onClose={() => setEditingParameterValue(null)}
+                parameterValue={editingParameterValue}
+                onSuccess={() => {
+                    if (objectId) laadDossier(objectId);
+                }}
+            />
         </div>
 
     );
 }
-

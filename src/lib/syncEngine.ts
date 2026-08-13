@@ -138,30 +138,64 @@ export async function voerVolledigeSyncUit() {
             resultaten.pushedToTurso += localChanges.length;
         }
     }
-    // B. Publieke Entiteiten
-    for (const { table } of entiteitTabellen) {
-        const localPubChanges = await db
-            .select()
-            .from(table as any)
-            .where(
-                and(
-                    eq((table as any).isConfidential, false),
-                    gte((table as any).updatedAt, lastSyncedAt)
-                )
-            );
+ // B. Publieke Entiteiten
+    // 1. Publieke Objecten ophalen
+    const pubObjects = await db
+        .select()
+        .from(schema.objects)
+        .where(
+            and(
+                eq(schema.objects.isConfidential, false),
+                gte(schema.objects.updatedAt, lastSyncedAt)
+            )
+        );
 
-        if (localPubChanges.length > 0) {
-            // Haal de echte DB-kolommen op met de officiële Drizzle helper
-            const columns = getTableColumns(table as any);
+    // 2. Publieke Relaties ophalen (Alleen als de relatie én BEIDE objecten publiek zijn)
+    const pubRelations = await db
+        .select({ rv: schema.relationValues })
+        .from(schema.relationValues)
+        .innerJoin(schema.objects, eq(schema.relationValues.sourceId, schema.objects.id))
+        .where(
+            and(
+                eq(schema.relationValues.isConfidential, false),
+                eq(schema.objects.isConfidential, false),
+                gte(schema.relationValues.updatedAt, lastSyncedAt)
+            )
+        )
+        .then((rows: any[]) => rows.map((r: any) => r.rv));
 
+    // 3. Publieke Parameterwaarden ophalen (Waterdicht: vlag op 0 EN gekoppeld aan publiek object)
+    const pubParamValues = await db
+        .select({ pv: schema.parameterValues })
+        .from(schema.parameterValues)
+        .innerJoin(schema.objects, eq(schema.parameterValues.targetId, schema.objects.id))
+        .where(
+            and(
+                eq(schema.parameterValues.isConfidential, false),
+                eq(schema.objects.isConfidential, false), // 🛡️ Dubbele check op het Target Object!
+                gte(schema.parameterValues.updatedAt, lastSyncedAt)
+            )
+        )
+        .then((rows: any[]) => rows.map((r: any) => r.pv));
+
+    // Helper voor het pushen van entiteiten
+    const entiteitenPushes = [
+        { table: schema.objects, data: pubObjects },
+        { table: schema.relationValues, data: pubRelations },
+        { table: schema.parameterValues, data: pubParamValues },
+    ];
+
+    for (const { table, data } of entiteitenPushes) {
+        if (data.length > 0) {
+            const columns = getTableColumns(table);
             const setClause: Record<string, any> = {};
+
             for (const [colKey, colObj] of Object.entries(columns)) {
-                // colObj.name is de fysieke DB-kolomnaam (bijv. "is_confidential")
                 const dbColumnName = (colObj as any).name || colKey;
                 setClause[dbColumnName] = sql`EXCLUDED.${sql.identifier(dbColumnName)}`;
             }
 
-            for (const batch of chunkArray(localPubChanges, 100)) {
+            for (const batch of chunkArray(data, 100)) {
                 await dbRemote
                     .insert(table as any)
                     .values(batch)
@@ -170,7 +204,7 @@ export async function voerVolledigeSyncUit() {
                         set: setClause,
                     });
             }
-            resultaten.pushedToTurso += localPubChanges.length;
+            resultaten.pushedToTurso += data.length;
         }
     }
     // --- STAP 5: HARD DELETE OPKUISBEURT (TURSO) ---
