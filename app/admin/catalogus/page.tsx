@@ -181,6 +181,7 @@ export default function CatalogusBeheerPage() {
                           <option value="boolean">Ja/Nee (Boolean)</option>
                           <option value="date">Datum (Date)</option>
                           <option value="markdown">Markdown / Geavanceerde tekst</option>
+                          <option value="file">📁 Bestand / Media / Document (File)</option>
                         </select>
                       </div>
                       <div>
@@ -216,9 +217,9 @@ export default function CatalogusBeheerPage() {
                   </div>
                 </div>
 
-                <div className="md:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden max-h-[500px] overflow-y-auto">
+                <div className="md:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden max-h-125 overflow-y-auto">
                   <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-800/60 text-slate-400 border-b border-slate-800 sticky top-0 bg-slate-900 z-10">
+                    <thead className="text-slate-400 border-b border-slate-800 sticky top-0 bg-slate-900 z-10">
                       <tr>
                         <th className="p-3">Code</th>
                         <th className="p-3">Label</th>
@@ -295,9 +296,9 @@ export default function CatalogusBeheerPage() {
                   </div>
                 </div>
 
-                <div className="md:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden max-h-[500px] overflow-y-auto">
+                <div className="md:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden max-h-125 overflow-y-auto">
                   <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-800/60 text-slate-400 border-b border-slate-800 sticky top-0 bg-slate-900 z-10">
+                    <thead className="text-slate-400 border-b border-slate-800 sticky top-0 bg-slate-900 z-10">
                       <tr>
                         <th className="p-3">ID</th>
                         <th className="p-3">Label</th>
@@ -413,7 +414,7 @@ export default function CatalogusBeheerPage() {
                   </div>
                 </div>
 
-                <div className="md:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3 max-h-[500px] overflow-y-auto">
+                <div className="md:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3 max-h-125 overflow-y-auto">
                   {[...data.parameterSets]
                     .sort((a: any, b: any) => a.label.localeCompare(b.label))
                     .map((s: any) => (
@@ -481,9 +482,9 @@ export default function CatalogusBeheerPage() {
                   </div>
                 </div>
 
-                <div className="md:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden max-h-[500px] overflow-y-auto">
+                <div className="md:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden max-h-125 overflow-y-auto">
                   <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-800/60 text-slate-400 border-b border-slate-800 sticky top-0 bg-slate-900 z-10">
+                    <thead className=" text-slate-400 border-b border-slate-800 sticky top-0 bg-slate-900 z-10">
                       <tr>
                         <th className="p-3">Symbool</th>
                         <th className="p-3">Omschrijving</th>

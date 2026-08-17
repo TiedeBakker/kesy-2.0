@@ -254,60 +254,91 @@ export default function ObjectModal({
         }
     };
 
-    const renderParameterCard = (param: any, originalIndex: number) => (
-        <div key={param.id || originalIndex} className="p-2 bg-slate-800 rounded border border-slate-700/60 text-xs space-y-1">
-            <div className="flex justify-between items-center">
-                <span className="text-[11px] font-semibold text-sky-400">{param.label}</span>
-                <div className="flex items-center gap-1">
-                    {param.id && (
-                        <button
-                            type="button"
-                            onClick={() => setEditingParameterValue(param)}
-                            className="text-slate-400 hover:text-sky-400 text-xs px-1"
-                            title="Parameterwaarde bewerken"
-                        >
-                            ✏️
-                        </button>
-                    )}
-                    {mode === "edit" && (
-                        <button onClick={() => verwijderParameter(param.id, originalIndex)} className="text-slate-500 hover:text-rose-400 text-xs px-1">
-                            🗑️
-                        </button>
-                    )}
-                </div>
-            </div>
-            {mode === "edit" ? (
-                <div className="flex gap-1 items-center">
-                    <input
-                        type="text"
-                        value={param.value || ""}
-                        onChange={(e) => {
-                            const val = e.target.value;
-                            setParameterValues((prev) => {
-                                const copy = [...prev];
-                                copy[originalIndex] = { ...copy[originalIndex], value: val };
-                                return copy;
-                            });
-                        }}
-                        placeholder="Waarde invoeren..."
-                        className="flex-1 px-2 py-1 bg-slate-950 border border-slate-700 rounded text-slate-100 text-xs focus:border-sky-500 outline-none"
-                    />
-                    {param.unit && <span className="text-[10px] text-slate-400">{param.unit}</span>}
-                </div>
-            ) : (
-                <div className="flex justify-between items-baseline">
-                    <span className="font-semibold text-slate-100 truncate pr-2">
-                        {param.value} {param.unit ? <span className="text-[10px] text-slate-400">{param.unit}</span> : ""}
-                    </span>
-                    {param.validFrom && (
-                        <span className="text-[9px] text-slate-500 font-mono">
-                            {param.validFrom.split("T")[0]}
-                        </span>
-                    )}
-                </div>
+const renderParameterCard = (param: any, originalIndex: number) => (
+  <div key={param.id || originalIndex} className="p-2 bg-slate-800 rounded border border-slate-700/60 text-xs space-y-1">
+    
+    {/* HEADER: LABEL & BEWERK/VERWIJDER KNOPPEN */}
+    <div className="flex justify-between items-center">
+      <span className="text-[11px] font-semibold text-sky-400">{param.label}</span>
+      <div className="flex items-center gap-1">
+        {param.id && (
+          <button
+            type="button"
+            onClick={() => setEditingParameterValue(param)}
+            className="text-slate-400 hover:text-sky-400 text-xs px-1"
+            title="Parameterwaarde bewerken"
+          >
+            ✏️
+          </button>
+        )}
+        {mode === "edit" && (
+          <button
+            type="button"
+            onClick={() => verwijderParameter(param.id, originalIndex)}
+            className="text-slate-500 hover:text-rose-400 text-xs px-1"
+            title="Verwijderen"
+          >
+            🗑️
+          </button>
+        )}
+      </div>
+    </div>
+
+    {/* CONTENT: EDIT MODUS VS VIEW MODUS */}
+    {mode === "edit" ? (
+      <div className="flex gap-1 items-center">
+        <input
+          type="text"
+          value={param.value || ""}
+          onChange={(e) => {
+            const val = e.target.value;
+            setParameterValues((prev) => {
+              const copy = [...prev];
+              copy[originalIndex] = { ...copy[originalIndex], value: val };
+              return copy;
+            });
+          }}
+          placeholder="Waarde invoeren..."
+          className="flex-1 px-2 py-1 bg-slate-950 border border-slate-700 rounded text-slate-100 text-xs focus:border-sky-500 outline-none"
+        />
+        {param.unit && <span className="text-[10px] text-slate-400">{param.unit}</span>}
+      </div>
+    ) : (
+      <div className="flex justify-between items-baseline">
+        {/* WEERGAVE WANNEER HET EEN BESTAND/FILE IS */}
+        {param.dataType === "file" ? (
+          <div className="flex items-center gap-2 truncate pr-2">
+            <span className="font-mono text-[11px] text-slate-300 truncate" title={param.value}>
+              {param.value || "-"}
+            </span>
+            {param.value && (
+              <a
+                href={param.value.startsWith("http") ? param.value : `file:///${param.value.replace(/\\/g, "/")}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 px-2 py-0.5 bg-sky-900/60 hover:bg-sky-800 border border-sky-700 text-sky-200 rounded text-[10px] font-medium transition"
+              >
+                📁 Openen
+              </a>
             )}
-        </div>
-    );
+          </div>
+        ) : (
+          /* WEERGAVE VOOR STANDAARD DATATYPES */
+          <span className="font-semibold text-slate-100 truncate pr-2">
+            {param.value} {param.unit ? <span className="text-[10px] text-slate-400">{param.unit}</span> : ""}
+          </span>
+        )}
+
+        {/* GELDIGHEIDSDATUM (INDIEN AANWEZIG) */}
+        {param.validFrom && (
+          <span className="text-[9px] text-slate-500 font-mono">
+            {param.validFrom.split("T")[0]}
+          </span>
+        )}
+      </div>
+    )}
+  </div>
+);
     const [editingParameterValue, setEditingParameterValue] = useState<any | null>(null);
 
     if (!isOpen) return null;
@@ -318,7 +349,7 @@ export default function ObjectModal({
 
                 {/* HEADER */}
                 <div className="px-6 py-4 border-b border-slate-800 bg-slate-800/50 flex flex-wrap items-center justify-between gap-4">
-                    <div className="flex items-center gap-3 flex-1 min-w-[300px]">
+                    <div className="flex items-center gap-3 flex-1 min-w-75">
                         <span className="text-2xl">{mode === "edit" ? "✏️" : "📦"}</span>
                         <div className="flex-1">
                             {mode === "edit" ? (

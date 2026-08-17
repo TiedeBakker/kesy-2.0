@@ -108,41 +108,39 @@ export async function haalObjectDossierOp(objectId: string) {
   }
 }
 
-export async function zoekObjecten(zoekterm: string = "") {
+
+export async function zoekObjecten(zoekterm: string) {
   try {
-    // 💡 Gebruik activeDb (is op je laptop de lokale SQLite DB met vertrouwelijke data)
-    const client = activeDb || db;
-
-    if (!client) {
+    if (!zoekterm || zoekterm.trim().length < 2) {
       return { success: true, objecten: [] };
     }
 
-    const schoneZoekterm = zoekterm.trim().toLowerCase();
-    if (!schoneZoekterm) {
-      return { success: true, objecten: [] };
-    }
+    const term = zoekterm.trim();
 
-    const resultaten = await client
+    // Zoek query met slimme sortering
+    const resultaten = await db
       .select({
-        id: schema.objects.id,
-        label: schema.objects.label,
-        isConfidential: schema.objects.isConfidential,
+        id: objects.id,
+        label: objects.label
       })
-      .from(schema.objects)
+      .from(objects)
       .where(
-        and(
-          // 🔤 Case-insensitive zoeken op label en id
-          or(
-            like(sql`LOWER(${schema.objects.label})`, `%${schoneZoekterm}%`),
-            like(sql`LOWER(${schema.objects.id})`, `%${schoneZoekterm}%`)
-          ),
-          // 🔒 Alleen op Vercel (wanneer client === dbRemote) filteren we op publieke data!
-          client === dbRemote ? eq(schema.objects.isConfidential, false) : undefined
+        or(
+          like(objects.label, `%${term}%`),
+          like(objects.id, `%${term}%`)
         )
       )
-      .limit(10);
+      // 🎯 Slimme sortering: Exacte matches eerst, daarna 'begint met', daarna de rest
+      .orderBy(
+        sql`CASE 
+          WHEN LOWER(${objects.label}) = LOWER(${term}) THEN 1
+          WHEN LOWER(${objects.label}) LIKE LOWER(${term + '%'}) THEN 2
+          ELSE 3
+        END`,
+        objects.label
+      )
+      .limit(50); // 🎯 Verhoogd van bijv. 10 naar 50
 
-    // 🎯 BELANGRIJK: Retourneer een object met `success` en `objecten`
     return { success: true, objecten: resultaten };
   } catch (error: any) {
     console.error("Fout bij zoeken objecten:", error);
@@ -407,72 +405,87 @@ async function hernummerVolgordeVoorSource(client: any, sourceId: string) {
 }
 
 // 1 & 2. Server Action om relatietype of richting aan te passen
-export async function bewerkRelatie(data: {
+// app/actions.ts (of waar bewerkRelatie gedefinieerd staat)
+
+// app/actions.ts
+
+export async function bewerkRelatie({
+  relationValueId,
+  nieuwRelationId,
+  wisselRichting,
+  validFrom,
+  validTo,
+}: {
   relationValueId: string;
   nieuwRelationId?: string;
   wisselRichting?: boolean;
+  validFrom?: string | null;
+  validTo?: string | null;
 }) {
   try {
     const client = activeDb || db;
     if (!client) return { success: false, error: "Geen actieve database." };
 
-    // 1. Haal huidige relatie op
-    const [huidige] = await client
+    // 1. Ophalen van de huidige relatie
+    const currentRel = await client
       .select()
       .from(schema.relationValues)
-      .where(eq(schema.relationValues.id, data.relationValueId));
+      .where(eq(schema.relationValues.id, relationValueId))
+      .get();
 
-    if (!huidige) {
+    if (!currentRel) {
       return { success: false, error: "Relatie niet gevonden." };
     }
 
-    const nu = new Date().toISOString();
-    let updateData: any = { updatedAt: nu };
+    // 2. Bepaal de nieuwe waarden
+    const targetRelationId = nieuwRelationId || currentRel.relationId;
+    
+    // Gebruik de correcte schemanamen: sourceId en targetId
+    let newSourceId = currentRel.sourceId;
+    let newTargetId = currentRel.targetId;
+    let newVolgorde = currentRel.volgorde;
 
-    if (data.nieuwRelationId) {
-      updateData.relationId = data.nieuwRelationId;
-    }
+    // Als de richting omgewisseld wordt
+    if (wisselRichting) {
+      newSourceId = currentRel.targetId;
+      newTargetId = currentRel.sourceId;
 
-    // Als richting moet worden omgedraaid (Source ↔ Target)
-    if (data.wisselRichting) {
-      const oudeSourceId = huidige.sourceId;
-      const nieuweSourceId = huidige.targetId;
-
-      // Bepaal de nieuwe volgorde achteraan bij de nieuwe source
-      const bestaandeBijNieuweSource = await client
+      // Bepaal de hoogste volgorde bij het nieuwe bron-object
+      const bestaandeRelaties = await client
         .select({ maxVolgorde: max(schema.relationValues.volgorde) })
         .from(schema.relationValues)
-        .where(eq(schema.relationValues.sourceId, nieuweSourceId));
+        .where(eq(schema.relationValues.sourceId, newSourceId));
 
-      const nieuweVolgorde = (bestaandeBijNieuweSource[0]?.maxVolgorde ?? 0) + 1;
-
-      updateData.sourceId = nieuweSourceId;
-      updateData.targetId = oudeSourceId;
-      updateData.volgorde = nieuweVolgorde;
-
-      // Voer de update uit
-      await client
-        .update(schema.relationValues)
-        .set(updateData)
-        .where(eq(schema.relationValues.id, data.relationValueId));
-
-      // Hernummer de overgebleven relaties van de OUDE source
-      await hernummerVolgordeVoorSource(client, oudeSourceId);
-    } else {
-      // Normale update (alleen relatietype veranderd)
-      await client
-        .update(schema.relationValues)
-        .set(updateData)
-        .where(eq(schema.relationValues.id, data.relationValueId));
+      const hoogsteVolgorde = bestaandeRelaties[0]?.maxVolgorde ?? 0;
+      newVolgorde = hoogsteVolgorde + 1;
     }
 
+    // 3. Database Update uitvoeren
+    await client
+      .update(schema.relationValues)
+      .set({
+        relationId: targetRelationId,
+        sourceId: newSourceId,
+        targetId: newTargetId,
+        volgorde: newVolgorde,
+        validFrom: validFrom !== undefined ? validFrom : currentRel.validFrom,
+        validTo: validTo !== undefined ? validTo : currentRel.validTo,
+        updatedAt: new Date().toISOString(),
+      })
+      .where(eq(schema.relationValues.id, relationValueId));
+
+    // Herbereken de volgorde van het oude bron-object bij richting-wissel
+    if (wisselRichting) {
+      await hernummerVolgordeVoorSource(client, currentRel.sourceId);
+    }
+
+    revalidatePath("/");
     return { success: true };
   } catch (error: any) {
     console.error("Fout bij bewerken relatie:", error);
-    return { success: false, error: error.message };
+    return { success: false, error: error.message || "Fout bij opslaan." };
   }
 }
-
 // app/actions.ts
 
 // 1. Ophalen van alle definities + parameter sets met hun gekoppelde parameters
@@ -658,7 +671,7 @@ const nowIso = () => new Date().toISOString();
 
 export async function slaParameterOp(data: { id?: string; code: string; label: string; dataType: string; unit?: string }) {
   try {
-    const id = data.id || `par_${Date.now()}`;
+    const id = data.id || uuidv7();
     await db.insert(parameters).values({
       id,
       code: data.code,

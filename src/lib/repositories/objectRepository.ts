@@ -26,6 +26,7 @@ export async function getObjectDossier(objectId: string) {
             parameterId: schema.parameterValues.parameterId,
             label: paramDef.label,
             code: paramDef.code,
+            dataType: paramDef.dataType,
             unit: paramDef.unit,
             value: schema.parameterValues.value,
             isConfidential: schema.parameterValues.isConfidential,

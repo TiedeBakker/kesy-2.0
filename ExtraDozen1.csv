@@ -1,0 +1,225 @@
+# {
+#   "profile": "Insectendoos Specimen Import",
+#   "version": "1.0",
+#   "delimiter": ";",
+#   "ignoreEmptyRows": true,
+#   "isConfidential": false,
+#   "steps": [
+#     {
+#       "step": 1,
+#       "target": "parent_object",
+#       "contextKey": "DoosId",
+#       "labelTemplate": "Insectendoos: {0}",
+#       "objectTypeId": "019fcd20-b442-755f-af50-9cdf9716990d",
+#       "parameters": [
+#         { "parameterId": "019fc74c-cf8c-74ff-a3b6-b6d21c651a19", "column": 1 }
+#       ]
+#     },
+#     {
+#       "step": 2,
+#       "target": "child_object",
+#       "labelTemplate": "Specimen groep: {2} {3}",
+#       "objectTypeId": "019fcd20-b56f-76ae-9bf0-f98a0354b7ca",
+#       "relations": [
+#         { 
+#           "relationTypeId": "019fad01-ca30-769d-8c9c-6fc70fa9db0a", 
+#           "relatedContextKey": "DoosId", 
+#           "direction": "outgoing" 
+#         }
+#       ],
+#       "parameters": [
+#         { "parameterId": "019fad6f-c149-7795-b3e5-751c8b2b7949", "column": 4 }
+#       ]
+#     }
+#   ]
+# }
+"Insectendoos_label";"Insectendoos_toelichting";"Geslacht";"Soort";"Aantal"
+"15-01: 17.10.5 L ";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 4";"Oxytelus";"rugosus";13
+"15-01: 17.10.5 L ";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 4";"Oxytelus";"insectatus";2
+"15-01: 17.10.5 L ";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 4";"Oxytelus";"fulvipes";1
+"15-01: 17.10.5 L ";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 4";"Tanycraerus";"laequeatus";11
+"15-01: 17.10.5 L ";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 4";"Caccoporus";"piceua";1
+"15-01: 17.10.5 L ";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 4";"Epomotylus";"sculptus";6
+"15-01: 17.10.5 L ";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 4";"Anotylus";"inustus";1
+"15-01: 17.10.5 L ";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 4";"Anotylus";"sculpturatus";9
+"15-01: 17.10.5 L ";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 4";"Anotylus";"nitidulus";3
+"15-01: 17.10.5 L ";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 4";"Anotylus";"complanatus";5
+"15-01: 17.10.5 L ";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 4";"Anotylus";"clypeonitens";1
+"15-01: 17.10.5 L ";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 4";"Anotylus";"saulcyi";2
+"15-01: 17.10.5 L ";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 4";"Anotylus";"tetracarinatus";9
+"15-01: 17.10.5 L ";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 4";"Pyctocraerus";"arenarius";4
+"15-01: 17.10.5 L ";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 4";"Platystethus";"cornutus";11
+"15-01: 17.10.5 L ";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 4";"Platystethus";"alutaceus";4
+"15-01: 17.10.5 L ";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 4";"Platystethus";"capito";1
+"15-01: 17.10.5 L ";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 4";"Platystethus";"nodifrons";1
+"15-01: 17.10.5 L ";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 4";"Platystethus";"spinosus";1
+"15-01: 17.10.5 L ";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 4";"Platystethus";"nitens";4
+"15-01: 17.10.5 L ";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 4";"Euceratobledius";"furcatus";2
+"15-01: 17.10.5 L ";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 4";"Bledius";"tricornis";3
+"15-01: 17.10.5 L ";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 4";"Bledius";"spectabilis";16
+"15-01: 17.10.5 L ";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 4";"Bledius";"unicornis";4
+"15-01: 17.10.5 L ";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 4";"Elbidus";"bicornis";1
+"15-01: 17.10.5 L ";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 4";"Elbidus";"diota";1
+"15-01: 17.10.5 L ";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 4";"Blediodes";"denticollis";16
+"15-01: 17.10.5 L ";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 4";"Blediodes";"pallipes";16
+"15-01: 17.10.5 L ";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 4";"Blediodes";"terebrans";14
+"15-01: 17.10.5 L ";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 4";"Blediodes";"fuscipes";7
+"15-01: 17.10.5 L ";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 4";"Blediodes";"filipes";2
+"15-01: 17.10.5 L ";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 4";"Blediodes";"vilis";7
+"15-01: 17.10.5 L ";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 4";"Blediodes";"defensus";4
+"15-01: 17.10.5 L ";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 4";"Blediodes";"longulus";9
+"15-01: 17.10.5 L ";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 4";"Blediodes";"opacus";4
+"15-01: 17.10.5 L ";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 4";"Blediodes";"atricapillus";3
+"15-01: 17.10.5 L ";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 4";"Blediodes";"nanus";2
+;;;;
+"15-02: 17.10.6L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 5";"Blediodes";"fracticornis";8
+"15-02: 17.10.6L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 5";"Blediodes";"femoralis";1
+"15-02: 17.10.6L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 5";"Blediodes";"procerulus";1
+"15-02: 17.10.6L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 5";"Blediodes";"crassicollis";1
+"15-02: 17.10.6L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 5";"Blediodes";"occidentalis";1
+"15-02: 17.10.6L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 5";"Blediodes";"cribricollis";1
+"15-02: 17.10.6L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 5";"Blediodes";"dissimilis";6
+"15-02: 17.10.6L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 5";"Blediodes";"erraticus";4
+"15-02: 17.10.6L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 5";"Blediodes";"pussilus";1
+"15-02: 17.10.6L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 5";"Blediodes";"subterraneus";13
+"15-02: 17.10.6L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 5";"Blediodes";"arenarius";14
+"15-02: 17.10.6L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 5";"Oxyporus";"rufus";14
+"15-02: 17.10.6L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 5";"Stenus";"fossulatus";9
+"15-02: 17.10.6L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 5";"Stenus";"juno";4
+"15-02: 17.10.6L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 5";"Stenus";"calcaratus";6
+"15-02: 17.10.6L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 5";"Stenus";"lustrator";16
+"15-02: 17.10.6L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 5";"Stenus";"proditor";13
+"15-02: 17.10.6L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 5";"Stenus";"clavicornis";4
+"15-02: 17.10.6L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 5";"Stenus";"providus";16
+"15-02: 17.10.6L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 5";"Nestus";"boops";8
+"15-02: 17.10.6L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 5";"Nestus";"melanarius";15
+"15-02: 17.10.6L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 5";"Nestus";"atratulus";3
+"15-02: 17.10.6L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 5";"Nestus";"nitens";11
+"15-02: 17.10.6L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 5";"Nestus";"fuscipes";3
+;;;;
+"15-03: 17.10.7L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 6";"Nestus";"argus";3
+"15-03: 17.10.7L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 6";"Nestus";"europaeus";13
+"15-03: 17.10.7L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 6";"Nestus";"carbonarius";6
+"15-03: 17.10.7L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 6";"Tesnus";"crassus";13
+"15-03: 17.10.7L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 6";"Hypostenus";"fulvicornis";11
+"15-03: 17.10.7L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 6";"Hypostenus";"latifrons";13
+"15-03: 17.10.7L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 6";"Hypostenus";"solutus";12
+"15-03: 17.10.7L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 6";"Hypostenus";"cicindeloides";13
+"15-03: 17.10.7L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 6";"Hypostenus";"kiesenwetteri";11
+"15-03: 17.10.7L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 6";"Hemistenus";"binotatus";13
+"15-03: 17.10.7L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 6";"Hemistenus";"pubescens";4
+"15-03: 17.10.7L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 6";"Hemistenus";"flavipes";12
+"15-03: 17.10.7L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 6";"Hemistenus";"nitidiusculus";13
+"15-03: 17.10.7L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 6";"Hemistenus";"picipennis";13
+"15-03: 17.10.7L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 6";"Hemistenus";"bifoveolatus";8
+"15-03: 17.10.7L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 6";"Hemistenus";"brevipennis";13
+"15-03: 17.10.7L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 6";"Parastenus";"impressus";8
+;;;;
+"15-04: 17.10.8L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 7";"Euaesthetus";"ruficapillus";12
+"15-04: 17.10.8L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 7";"Paederidus";"ruficollis";8
+"15-04: 17.10.8L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 7";"Paederidus";"rubrothoracicus";6
+"15-04: 17.10.8L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 7";"Paederus";"riparius";14
+"15-04: 17.10.8L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 7";"Paederus";"fuscipes";4
+"15-04: 17.10.8L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 7";"Paederus";"litoralis";9
+"15-04: 17.10.8L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 7";"Astenus";"filiformis";4
+"15-04: 17.10.8L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 7";"Astenus";"pulchellus";3
+"15-04: 17.10.8L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 7";"Astenus";"gracilis";1
+"15-04: 17.10.8L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 7";"Stilicus";"angustatus";4
+"15-04: 17.10.8L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 7";"Stilicus";"rufipes";11
+"15-04: 17.10.8L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 7";"Stilicus";"erichsoni";15
+"15-04: 17.10.8L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 7";"Stilicus";"orbiculatus";16
+"15-04: 17.10.8L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 7";"Medon";"dilutus";1
+"15-04: 17.10.8L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 7";"Medon";"fusculus";1
+;;;;
+"15-05: 17.10.9L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 8";"Medon";"melanocephalus";1
+"15-05: 17.10.9L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 8";"Medon";"obscurellus";1
+"15-05: 17.10.9L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 8";"Lithocharis";"ochracea";2
+"15-05: 17.10.9L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 8";"Lithocharis";"nigriceps";3
+"15-05: 17.10.9L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 8";"Polydontus";"cognatus";2
+"15-05: 17.10.9L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 8";"Polydontus";"minimus";1
+"15-05: 17.10.9L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 8";"Lobrathium";"multipunctum";2
+"15-05: 17.10.9L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 8";"Tetratopeus";"quadratum";1
+"15-05: 17.10.9L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 8";"Tetratopeus";"terminatum";15
+"15-05: 17.10.9L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 8";"Lathrobium";"elongatum";5
+"15-05: 17.10.9L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 8";"Lathrobium";"geminum";10
+"15-05: 17.10.9L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 8";"Lathrobium";"laevipenne";1
+"15-05: 17.10.9L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 8";"Lathrobium";"castaneipenne";1
+"15-05: 17.10.9L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 8";"Lathrobium";"fulvipenne";3
+"15-05: 17.10.9L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 8";"Lathrobium";"brunnipes";14
+"15-05: 17.10.9L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 8";"Lathrobium";"fovulum";1
+"15-05: 17.10.9L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 8";"Lathrobium";"filiforme";3
+"15-05: 17.10.9L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 8";"Leptacinus";"batychrus";1
+"15-05: 17.10.9L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 8";"Leptacinus";"linearis";2
+"15-05: 17.10.9L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 8";"Leptacinus";"intermedius";1
+"15-05: 17.10.9L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 8";"Leptacinus";"formicetorum";2
+"15-05: 17.10.9L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 8";"Nudobius";"lentus";8
+;;;;
+"15-06: 17.10.10L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 9";"Gyrohypnus";"punctulatus";2
+"15-06: 17.10.10L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 9";"Gyrohypnus";"angustatus";3
+"15-06: 17.10.10L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 9";"Xantholinus";"glabratus";2
+"15-06: 17.10.10L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 9";"Xantholinus";"semirufus";2
+"15-06: 17.10.10L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 9";"Xantholinus";"laevigatus";1
+"15-06: 17.10.10L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 9";"Xantholinus";"linearis";10
+"15-06: 17.10.10L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 9";"Xantholinus";"longiventris";6
+"15-06: 17.10.10L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 9";"Xantholinus";"rhenanus";1
+"15-06: 17.10.10L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 9";"Baptolinus";"affinis";11
+"15-06: 17.10.10L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 9";"Othius";"punctulatus";7
+"15-06: 17.10.10L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 9";"Othius";"melanocephalus";1
+"15-06: 17.10.10L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 9";"Othius";"myrmecophilus";10
+"15-06: 17.10.10L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 9";"Actobius";"cinerascens";7
+"15-06: 17.10.10L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 9";"Philonthus";"splendens";12
+"15-06: 17.10.10L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 9";"Philonthus";"intermedius";1
+"15-06: 17.10.10L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 9";"Philonthus";"laminatus";5
+"15-06: 17.10.10L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 9";"Philonthus";"nitidus";1
+"15-06: 17.10.10L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 9";"Philonthus";"politus";9
+"15-06: 17.10.10L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 9";"Philonthus";"chalceus";8
+"15-06: 17.10.10L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 9";"Philonthus";"carbonarius";12
+"15-06: 17.10.10L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 9";"Philonthus";"rotundicollis";1
+"15-06: 17.10.10L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 9";"Philonthus";"rectangulus";1
+"15-06: 17.10.10L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 9";"Philonthus";"concinnus";1
+;;;;
+"15-07: 17.10.11L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 10";"Philonthus";"decorus";7
+"15-07: 17.10.11L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 10";"Philonthus";"fuscipennis";10
+"15-07: 17.10.11L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 10";"Philonthus";"varius";12
+"15-07: 17.10.11L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 10";"Philonthus";"cruentatus";1
+"15-07: 17.10.11L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 10";"Philonthus";"varians";14
+"15-07: 17.10.11L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 10";"Philonthus";"jurgans";1
+"15-07: 17.10.11L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 10";"Philonthus";"fimetarius";12
+"15-07: 17.10.11L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 10";"Philonthus";"cephalotes";1
+"15-07: 17.10.11L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 10";"Philonthus";"sordidus";8
+"15-07: 17.10.11L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 10";"Philonthus";"fuscus";2
+"15-07: 17.10.11L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 10";"Philonthus";"quisquiliarius";14
+"15-07: 17.10.11L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 10";"Philonthus";"nigrita";1
+"15-07: 17.10.11L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 10";"Philonthus";"micans";1
+"15-07: 17.10.11L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 10";"Philonthus";"fulvipes";6
+"15-07: 17.10.11L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 10";"Onychophilonthus";"marginatus";15
+"15-07: 17.10.11L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 10";"Gabrius";"astutus";1
+;;;;
+"15-08: 17.10.12L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 11";"Gabrius";"splendidulus";4
+"15-08: 17.10.12L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 11";"Gabrius";"trossulus";1
+"15-08: 17.10.12L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 11";"Gabrius";"keysianus";1
+"15-08: 17.10.12L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 11";"Gabrius";"piliger";2
+"15-08: 17.10.12L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 11";"Gabrius";"nigritulus";2
+"15-08: 17.10.12L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 11";"Gabrius";"subnigritulus";1
+"15-08: 17.10.12L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 11";"Cafius";"xantholoma";5
+"15-08: 17.10.12L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 11";"Trichoderma";"pubescens";1
+"15-08: 17.10.12L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 11";"Parabemus";"fossor";2
+"15-08: 17.10.12L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 11";"Platydracus";"chalcocephalus";2
+"15-08: 17.10.12L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 11";"Platydracus";"latebricola";1
+"15-08: 17.10.12L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 11";"Platydracus";"stercorarius";3
+"15-08: 17.10.12L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 11";"Platydracus";"fulvipes";1
+"15-08: 17.10.12L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 11";"Staphylinus";"caesareus";1
+"15-08: 17.10.12L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 11";"Staphylinus";"dimidiaticornis";2
+"15-08: 17.10.12L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 11";"Staphylinus";"erythropterus";2
+"15-08: 17.10.12L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 11";"Goerius";"olens";4
+"15-08: 17.10.12L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 11";"Goerius";"opthalmicus";7
+"15-08: 17.10.12L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 11";"Goerius";"similis";2
+"15-08: 17.10.12L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 11";"Pseudocyphus";"brunnipes";4
+"15-08: 17.10.12L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 11";"Pseudocyphus";"aenocephalus";3
+"15-08: 17.10.12L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 11";"Pseudocyphus";"picipennis";4
+"15-08: 17.10.12L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 11";"Tasgius";"ater";6
+"15-08: 17.10.12L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 11";"Tasgius";"pedator";1
+"15-08: 17.10.12L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 11";"Ocypus";"minax";1
+"15-08: 17.10.12L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 11";"Ocypus";"globulifer";1
+"15-08: 17.10.12L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 11";"Ocypus";"melanarius";6
+"15-08: 17.10.12L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 11";"Ocypus";"compressus";2

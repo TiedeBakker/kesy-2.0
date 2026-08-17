@@ -178,7 +178,7 @@ const handleZoeken = async (term: string) => {
         {/* OBJECTEN ZOEKBOX EN TEST-LAUNCHER */}
         <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 space-y-4">
           <h2 className="text-xl font-semibold text-slate-200 border-b border-slate-700 pb-2">
-            🔍 Test Object Dossier Modal
+            🔍 Dossier ModalTest Object
           </h2>
           <input
             type="text"
@@ -187,8 +187,9 @@ const handleZoeken = async (term: string) => {
             onChange={(e) => handleZoeken(e.target.value)}
             className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-200 focus:outline-none focus:border-sky-500"
           />
+          
           {zoekResultaten.length > 0 && (
-            <div className="divide-y divide-slate-700/50 border border-slate-700 rounded-lg overflow-hidden bg-slate-900">
+            <div className="max-h-64 overflow-y-auto border border-slate-700 rounded-lg bg-slate-900 divide-y divide-slate-800 shadow-inner">
               {zoekResultaten.map((obj) => (
                 <div
                   key={obj.id}

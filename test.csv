@@ -1,0 +1,41 @@
+# {
+#   "profile": "Insectendoos Specimen Import",
+#   "version": "1.0",
+#   "delimiter": ";",
+#   "ignoreEmptyRows": true,
+#   "isConfidential": false,
+#   "steps": [
+#     {
+#       "step": 1,
+#       "target": "parent_object",
+#       "contextKey": "DoosId",
+#       "labelTemplate": "Insectendoos: {0}",
+#       "objectTypeId": "019fcd20-b442-755f-af50-9cdf9716990d",
+#       "parameters": [
+#         { "parameterId": "019fc74c-cf8c-74ff-a3b6-b6d21c651a19", "column": 1 }
+#       ]
+#     },
+#     {
+#       "step": 2,
+#       "target": "child_object",
+#       "labelTemplate": "Specimen groep: {2} {3}",
+#       "objectTypeId": "019fcd20-b56f-76ae-9bf0-f98a0354b7ca",
+#       "relations": [
+#         { 
+#           "relationTypeId": "019fad01-ca30-769d-8c9c-6fc70fa9db0a", 
+#           "relatedContextKey": "DoosId", 
+#           "direction": "outgoing" 
+#         }
+#       ],
+#       "parameters": [
+#         { "parameterId": "019fad6f-c149-7795-b3e5-751c8b2b7949", "column": 4 }
+#       ]
+#     }
+#   ]
+# }
+"Insectendoos_label";"Insectendoos_toelichting";"Geslacht";"Soort";"Aantal"
+"15-01: 17.10.5 L ";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 4";"Oxytelus";"rugosus";13
+"15-01: 17.10.5 L ";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 4";"Oxytelus";"insectatus";2
+"15-01: 17.10.5 L ";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 4";"Oxytelus";"fulvipes";1
+;;;;
+"15-02: 17.10.6L";"Natuurmuseum, Enschede - Coleoptera Nederland - Staphylinidae 5";"Blediodes";"fracticornis";8
