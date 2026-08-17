@@ -109,37 +109,50 @@ export async function haalObjectDossierOp(objectId: string) {
 }
 
 
-export async function zoekObjecten(zoekterm: string) {
+// app/actions.ts
+
+export async function zoekObjecten(zoekterm: string = "") {
   try {
-    if (!zoekterm || zoekterm.trim().length < 2) {
+    // 1. Gebruik activeDb (wijst op Vercel naar Turso, en lokaal naar de desktop SQLite DB)
+    const client = activeDb || db;
+
+    if (!client) {
       return { success: true, objecten: [] };
     }
 
-    const term = zoekterm.trim();
+    const schoneZoekterm = zoekterm.trim().toLowerCase();
+    if (!schoneZoekterm || schoneZoekterm.length < 2) {
+      return { success: true, objecten: [] };
+    }
 
-    // Zoek query met slimme sortering
-    const resultaten = await db
+    // 2. Zoekopdracht met filter op vertrouwelijkheid (op Vercel) en slimme sortering
+    const resultaten = await client
       .select({
-        id: objects.id,
-        label: objects.label
+        id: schema.objects.id,
+        label: schema.objects.label,
+        isConfidential: schema.objects.isConfidential,
       })
-      .from(objects)
+      .from(schema.objects)
       .where(
-        or(
-          like(objects.label, `%${term}%`),
-          like(objects.id, `%${term}%`)
+        and(
+          or(
+            like(sql`LOWER(${schema.objects.label})`, `%${schoneZoekterm}%`),
+            like(sql`LOWER(${schema.objects.id})`, `%${schoneZoekterm}%`)
+          ),
+          // Alleen op Vercel/Turso (wanneer client === dbRemote) filteren op publieke data
+          client === dbRemote ? eq(schema.objects.isConfidential, false) : undefined
         )
       )
       // 🎯 Slimme sortering: Exacte matches eerst, daarna 'begint met', daarna de rest
       .orderBy(
         sql`CASE 
-          WHEN LOWER(${objects.label}) = LOWER(${term}) THEN 1
-          WHEN LOWER(${objects.label}) LIKE LOWER(${term + '%'}) THEN 2
+          WHEN LOWER(${schema.objects.label}) = LOWER(${schoneZoekterm}) THEN 1
+          WHEN LOWER(${schema.objects.label}) LIKE LOWER(${schoneZoekterm + '%'}) THEN 2
           ELSE 3
         END`,
-        objects.label
+        schema.objects.label
       )
-      .limit(50); // 🎯 Verhoogd van bijv. 10 naar 50
+      .limit(50); // 🎯 Verhoogde limiet
 
     return { success: true, objecten: resultaten };
   } catch (error: any) {
