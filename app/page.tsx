@@ -178,7 +178,7 @@ const handleZoeken = async (term: string) => {
         {/* OBJECTEN ZOEKBOX EN TEST-LAUNCHER */}
         <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 space-y-4">
           <h2 className="text-xl font-semibold text-slate-200 border-b border-slate-700 pb-2">
-            🔍 Dossier ModalTest Object
+            🔍 Dossier Modal Object
           </h2>
           <input
             type="text"
