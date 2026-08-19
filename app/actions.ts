@@ -879,109 +879,144 @@ export interface StuurbestandPayload {
   Sets: MediaSetDto[];
   Media: MediaItemDto[];
 }
-
 // app/actions.ts
+
+const REL_TYPE_HAS_OBJECT_TYPE = "019fa871-bd8e-76a5-b442-102282cb521f";
+const REL_TYPE_SET_MEDIA = "019fc28b-e55e-7303-8178-efba6993a77b";
+
+const OBJ_TYPE_SET = "01a01ad3-e233-73fd-a0cc-e07f887b2b8d";
+const OBJ_TYPE_FOTO = "01a016cd-9042-776b-a161-40c1ead8826b";
+const OBJ_TYPE_VIDEO = "01a016cd-906f-733b-9c7d-88f7cde6068f";
 
 export async function importeerStuurbestandAction(payload: StuurbestandPayload) {
   try {
     const client = activeDb || db;
     if (!client) return { success: false, error: "Geen actieve database-verbinding." };
 
-    // Bepaal de vereiste relatietype (bijv. 'media_in_set' of een generiek relatietype)
-    // Pas 'rel_media_set' aan naar de ID van jouw gewenste relatietype in de catalogus
-    const MEDIA_RELATION_ID = "rel_media_set"; 
-
-    // Parameters voor metadata/paden (ID's zoals gedefinieerd in jouw 'parameters' tabel)
-    const PARAM_PAD = "param_relatief_pad";
-    const PARAM_TYPE = "param_media_type";
-    const PARAM_OORSPRONKELIJK = "param_oorspronkelijk_bestand";
-    const PARAM_METADATA = "param_json_metadata";
-
     const nu = new Date().toISOString();
 
-    // 1. SETS Opslaan als 'objects'
-    for (const setItem of payload.Sets) {
-      await client
-        .insert(schema.objects)
-        .values({
-          id: setItem.Id,
-          label: setItem.Label,
-          isConfidential: setItem.IsConfidential,
-          validFrom: setItem.ValidFrom || nu,
-          createdAt: nu,
-          updatedAt: nu,
-        })
-        .onConflictDoUpdate({
-          target: schema.objects.id,
-          set: {
-            label: setItem.Label,
-            isConfidential: setItem.IsConfidential,
-            validFrom: setItem.ValidFrom || nu,
-            updatedAt: nu,
-          },
-        });
-    }
+    // 🔍 HELPER: Bepaal of een object al bestaat op basis van Label + ObjectType
+    async function haalOfMaakObjectId(label: string, objectTypeId: string, isConfidential: boolean, validFrom: string): Promise<string> {
+      // Zoek via een join met relationValues of dit label al gekoppeld is aan dit objecttype
+      const bestaandObject = await client
+        .select({ id: schema.objects.id })
+        .from(schema.objects)
+        .innerJoin(
+          schema.relationValues,
+          and(
+            eq(schema.relationValues.targetId, schema.objects.id),
+            eq(schema.relationValues.relationId, REL_TYPE_HAS_OBJECT_TYPE),
+            eq(schema.relationValues.sourceId, objectTypeId)
+          )
+        )
+        .where(eq(schema.objects.label, label))
+        .get();
 
-    // 2. MEDIA Items opslaan als 'objects' + PARAMETERS + RELATIES
-    for (const mediaItem of payload.Media) {
-      // A. Het Media-item opslaan als Object
-      await client
-        .insert(schema.objects)
-        .values({
-          id: mediaItem.Id,
-          label: mediaItem.Label,
-          isConfidential: mediaItem.IsConfidential,
-          validFrom: mediaItem.ValidFrom || nu,
-          createdAt: nu,
-          updatedAt: nu,
-        })
-        .onConflictDoUpdate({
-          target: schema.objects.id,
-          set: {
-            label: mediaItem.Label,
-            isConfidential: mediaItem.IsConfidential,
-            validFrom: mediaItem.ValidFrom || nu,
-            updatedAt: nu,
-          },
-        });
-
-      // B. Specifieke eigenschappen opslaan als 'parameterValues'
-      const paramWaarden = [
-        { paramId: PARAM_PAD, val: mediaItem.RelatiefPad },
-        { paramId: PARAM_TYPE, val: mediaItem.Type },
-        { paramId: PARAM_OORSPRONKELIJK, val: mediaItem.OorspronkelijkBestand },
-        { paramId: PARAM_METADATA, val: JSON.stringify(mediaItem.Metadata) },
-      ];
-
-      for (const p of paramWaarden) {
-        if (!p.val) continue;
+      if (bestaandObject) {
+        // Object bestaat al -> Update de gegevens en hergebruik het bestaande ID
         await client
-          .insert(schema.parameterValues)
-          .values({
-            id: uuidv7(),
-            parameterId: p.paramId,
-            targetId: mediaItem.Id,
-            targetType: "object",
-            value: p.val,
-            isConfidential: mediaItem.IsConfidential,
-            validFrom: mediaItem.ValidFrom || nu,
+          .update(schema.objects)
+          .set({
+            isConfidential,
+            validFrom,
             updatedAt: nu,
-          });
+          })
+          .where(eq(schema.objects.id, bestaandObject.id));
+
+        return bestaandObject.id;
       }
 
-      // C. Koppeling leggen via 'relationValues' (Media -> Set)
-      for (const setId of mediaItem.Sets) {
-        await client
-          .insert(schema.relationValues)
-          .values({
+      // Object bestaat nog niet -> Maak nieuw object aan met nieuwe UUID
+      const nieuwId = uuidv7();
+
+      await client.insert(schema.objects).values({
+        id: nieuwId,
+        label,
+        isConfidential,
+        validFrom,
+        createdAt: nu,
+        updatedAt: nu,
+      });
+
+      // Koppel direct aan het ObjectType
+      await client.insert(schema.relationValues).values({
+        id: uuidv7(),
+        relationId: REL_TYPE_HAS_OBJECT_TYPE,
+        sourceId: objectTypeId,
+        targetId: nieuwId,
+        isConfidential: Boolean(isConfidential),
+        validFrom,
+        createdAt: nu,
+        updatedAt: nu,
+      });
+
+      return nieuwId;
+    }
+
+    // 1. SETS Verwerken (zoeken/aanmaken op basis van Label + OBJ_TYPE_SET)
+    const setRealIdMap = new Map<string, { realId: string; isConfidential: boolean }>();
+
+    for (const setItem of payload.Sets) {
+      const setValidFrom = setItem.ValidFrom || nu;
+      
+      const realSetId = await haalOfMaakObjectId(
+        setItem.Label,
+        OBJ_TYPE_SET,
+        setItem.IsConfidential,
+        setValidFrom
+      );
+
+      // Bewaar het daadwerkelijke DB-ID gekoppeld aan het JSON-ID voor de relaties straks
+      setRealIdMap.set(setItem.Id, {
+        realId: realSetId,
+        isConfidential: setItem.IsConfidential,
+      });
+    }
+
+    // 2. MEDIA Items Verwerken (zoeken/aanmaken op basis van Label + OBJ_TYPE_FOTO/VIDEO)
+    for (const mediaItem of payload.Media) {
+      const mediaValidFrom = mediaItem.ValidFrom || nu;
+      const targetObjectTypeSourceId = mediaItem.Type === "video" ? OBJ_TYPE_VIDEO : OBJ_TYPE_FOTO;
+
+      const realMediaId = await haalOfMaakObjectId(
+        mediaItem.Label,
+        targetObjectTypeSourceId,
+        mediaItem.IsConfidential,
+        mediaValidFrom
+      );
+
+      // KOPPELINGEN MET SETS (Set = Source, Media = Target)
+      for (const jsonSetId of mediaItem.Sets) {
+        const setInfo = setRealIdMap.get(jsonSetId);
+        if (!setInfo) continue;
+
+        const relatieIsConfidential = Boolean(mediaItem.IsConfidential || setInfo.isConfidential);
+
+        // Check of de specifieke relatie tussen deze Set en dit MediaItem al bestaat
+        const bestaandeRelatie = await client
+          .select({ id: schema.relationValues.id })
+          .from(schema.relationValues)
+          .where(
+            and(
+              eq(schema.relationValues.relationId, REL_TYPE_SET_MEDIA),
+              eq(schema.relationValues.sourceId, setInfo.realId),
+              eq(schema.relationValues.targetId, realMediaId)
+            )
+          )
+          .get();
+
+        if (!bestaandeRelatie) {
+          await client.insert(schema.relationValues).values({
             id: uuidv7(),
-            relationId: MEDIA_RELATION_ID,
-            sourceId: mediaItem.Id, // Media is bron
-            targetId: setId,        // Set is doel
-            isConfidential: mediaItem.IsConfidential,
-            validFrom: mediaItem.ValidFrom || nu,
+            relationId: REL_TYPE_SET_MEDIA,
+            sourceId: setInfo.realId,
+            targetId: realMediaId,
+            isConfidential: relatieIsConfidential,
+            validFrom: mediaValidFrom,
+            createdAt: nu,
             updatedAt: nu,
           });
+        }
       }
     }
 
