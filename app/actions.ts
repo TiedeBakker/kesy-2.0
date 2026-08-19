@@ -711,7 +711,7 @@ export async function slaParameterOp(data: { id?: string; code: string; label: s
 
 export async function slaRelatieTypeOp(data: { id?: string; label: string }) {
   try {
-    const id = data.id || `rel_${Date.now()}`;
+    const id = data.id || uuidv7();
     await db.insert(relations).values({
       id,
       label: data.label,
@@ -849,5 +849,146 @@ export async function slaParameterWaardebewerkingOp(payload: {
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err.message || "Fout bij bijwerken parameterwaarde." };
+  }
+}
+
+// app/actions.ts
+
+export interface MediaSetDto {
+  Id: string;
+  Label: string;
+  IsConfidential: boolean;
+  ValidFrom: string;
+}
+
+export interface MediaItemDto {
+  Id: string;
+  Type: "foto" | "video";
+  OorspronkelijkBestand: string;
+  Label: string;
+  RelatiefPad: string;
+  ValidFrom: string;
+  IsConfidential: boolean;
+  Metadata: Record<string, unknown>;
+  Sets: string[];
+}
+
+export interface StuurbestandPayload {
+  BatchId: string;
+  GegenereerdOp: string;
+  Sets: MediaSetDto[];
+  Media: MediaItemDto[];
+}
+
+// app/actions.ts
+
+export async function importeerStuurbestandAction(payload: StuurbestandPayload) {
+  try {
+    const client = activeDb || db;
+    if (!client) return { success: false, error: "Geen actieve database-verbinding." };
+
+    // Bepaal de vereiste relatietype (bijv. 'media_in_set' of een generiek relatietype)
+    // Pas 'rel_media_set' aan naar de ID van jouw gewenste relatietype in de catalogus
+    const MEDIA_RELATION_ID = "rel_media_set"; 
+
+    // Parameters voor metadata/paden (ID's zoals gedefinieerd in jouw 'parameters' tabel)
+    const PARAM_PAD = "param_relatief_pad";
+    const PARAM_TYPE = "param_media_type";
+    const PARAM_OORSPRONKELIJK = "param_oorspronkelijk_bestand";
+    const PARAM_METADATA = "param_json_metadata";
+
+    const nu = new Date().toISOString();
+
+    // 1. SETS Opslaan als 'objects'
+    for (const setItem of payload.Sets) {
+      await client
+        .insert(schema.objects)
+        .values({
+          id: setItem.Id,
+          label: setItem.Label,
+          isConfidential: setItem.IsConfidential,
+          validFrom: setItem.ValidFrom || nu,
+          createdAt: nu,
+          updatedAt: nu,
+        })
+        .onConflictDoUpdate({
+          target: schema.objects.id,
+          set: {
+            label: setItem.Label,
+            isConfidential: setItem.IsConfidential,
+            validFrom: setItem.ValidFrom || nu,
+            updatedAt: nu,
+          },
+        });
+    }
+
+    // 2. MEDIA Items opslaan als 'objects' + PARAMETERS + RELATIES
+    for (const mediaItem of payload.Media) {
+      // A. Het Media-item opslaan als Object
+      await client
+        .insert(schema.objects)
+        .values({
+          id: mediaItem.Id,
+          label: mediaItem.Label,
+          isConfidential: mediaItem.IsConfidential,
+          validFrom: mediaItem.ValidFrom || nu,
+          createdAt: nu,
+          updatedAt: nu,
+        })
+        .onConflictDoUpdate({
+          target: schema.objects.id,
+          set: {
+            label: mediaItem.Label,
+            isConfidential: mediaItem.IsConfidential,
+            validFrom: mediaItem.ValidFrom || nu,
+            updatedAt: nu,
+          },
+        });
+
+      // B. Specifieke eigenschappen opslaan als 'parameterValues'
+      const paramWaarden = [
+        { paramId: PARAM_PAD, val: mediaItem.RelatiefPad },
+        { paramId: PARAM_TYPE, val: mediaItem.Type },
+        { paramId: PARAM_OORSPRONKELIJK, val: mediaItem.OorspronkelijkBestand },
+        { paramId: PARAM_METADATA, val: JSON.stringify(mediaItem.Metadata) },
+      ];
+
+      for (const p of paramWaarden) {
+        if (!p.val) continue;
+        await client
+          .insert(schema.parameterValues)
+          .values({
+            id: uuidv7(),
+            parameterId: p.paramId,
+            targetId: mediaItem.Id,
+            targetType: "object",
+            value: p.val,
+            isConfidential: mediaItem.IsConfidential,
+            validFrom: mediaItem.ValidFrom || nu,
+            updatedAt: nu,
+          });
+      }
+
+      // C. Koppeling leggen via 'relationValues' (Media -> Set)
+      for (const setId of mediaItem.Sets) {
+        await client
+          .insert(schema.relationValues)
+          .values({
+            id: uuidv7(),
+            relationId: MEDIA_RELATION_ID,
+            sourceId: mediaItem.Id, // Media is bron
+            targetId: setId,        // Set is doel
+            isConfidential: mediaItem.IsConfidential,
+            validFrom: mediaItem.ValidFrom || nu,
+            updatedAt: nu,
+          });
+      }
+    }
+
+    revalidatePath("/");
+    return { success: true, count: payload.Media.length };
+  } catch (error: any) {
+    console.error("Fout bij importeren stuurbestand:", error);
+    return { success: false, error: error.message || "Fout bij verwerken van het stuurbestand." };
   }
 }
