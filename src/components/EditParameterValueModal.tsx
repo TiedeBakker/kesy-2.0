@@ -143,13 +143,6 @@ export default function EditParameterValueModal({
               </div>
 
               {/* OPTIE 1: BESTAND / FILE */}
-              // Bovenin importeren:
-              import LocalhostFileBrowserModal from "@/src/components/LocalhostFileBrowserModal";
-
-              // Binnen de EditParameterValueModal functie:
-              const [isBrowserOpen, setIsBrowserOpen] = useState(false);
-
-              // Bij het file-invoergedeelte:
               {isFileType ? (
                 <div className="space-y-2">
                   <div className="flex gap-2">

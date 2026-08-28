@@ -35,6 +35,7 @@ export default function Navbar() {
     { label: "Dashboard", href: "/", icon: "📊" },
     { label: "Catalogus", href: "/admin/catalogus", icon: "📚" },
     { label: "Invoer & Import", href: "/import", icon: "📥" },
+    { label: "Rapportages", href: "/rapportage", icon: "📊" }, // <-- TOEVOEGEN
     { label: "Presentaties", href: "/presentaties", icon: "📈" },
   ];
 

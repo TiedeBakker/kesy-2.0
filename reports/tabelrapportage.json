@@ -1,0 +1,21 @@
+{
+  "id": "tabelrapportage",
+  "naam": "Tabel & Boom Rapportage",
+  "beschrijving": "Rapportage waarbij niveau 1 als tabel wordt getoond en sub-niveaus als boomstructuur.",
+  "levels": [
+    {
+      "level": 1,
+      "relaties": "*",
+      "parameters": "*",
+      "headingTag": "h1",
+      "weergaveType": "tabel"
+    },
+    {
+      "level": 2,
+      "relaties": "*",
+      "parameters": "*",
+      "headingTag": "h2",
+      "weergaveType": "lijst"
+    }
+  ]
+}

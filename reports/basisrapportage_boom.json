@@ -1,0 +1,38 @@
+{
+  "id": "basisrapportage_boom",
+  "naam": "Boomstructuur Rapportage (Basis)",
+  "beschrijving": "Genereert een hiërarchisch overzicht van een object en gerelateerde sub-objecten.",
+  "levels": [
+    {
+      "level": 1,
+      "relaties": ["*"],
+      "parameters": "*",
+      "headingTag": "h1",
+      "titelTemplate": "Object: <strong>TTTT</strong>"
+    },
+    {
+      "level": 2,
+      "relaties": ["*"],
+      "parameters": "*",
+      "headingTag": "h2"
+    },
+    {
+      "level": 3,
+      "relaties": "*",
+      "parameters": "*",
+      "headingTag": "h3"
+    },
+    {
+      "level": 4,
+      "relaties": "*",
+      "parameters": "*",
+      "headingTag": "h4"
+    },
+    {
+      "level": 5,
+      "relaties": "*",
+      "parameters": "*",
+      "headingTag": "h5"
+    }
+  ]
+}

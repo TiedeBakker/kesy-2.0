@@ -452,7 +452,7 @@ export async function bewerkRelatie({
 
     // 2. Bepaal de nieuwe waarden
     const targetRelationId = nieuwRelationId || currentRel.relationId;
-    
+
     // Gebruik de correcte schemanamen: sourceId en targetId
     let newSourceId = currentRel.sourceId;
     let newTargetId = currentRel.targetId;
@@ -879,7 +879,6 @@ export interface StuurbestandPayload {
   Sets: MediaSetDto[];
   Media: MediaItemDto[];
 }
-// app/actions.ts
 
 const REL_TYPE_HAS_OBJECT_TYPE = "019fa871-bd8e-76a5-b442-102282cb521f";
 const REL_TYPE_SET_MEDIA = "019fc28b-e55e-7303-8178-efba6993a77b";
@@ -887,6 +886,11 @@ const REL_TYPE_SET_MEDIA = "019fc28b-e55e-7303-8178-efba6993a77b";
 const OBJ_TYPE_SET = "01a01ad3-e233-73fd-a0cc-e07f887b2b8d";
 const OBJ_TYPE_FOTO = "01a016cd-9042-776b-a161-40c1ead8826b";
 const OBJ_TYPE_VIDEO = "01a016cd-906f-733b-9c7d-88f7cde6068f";
+
+// ID van de parameter van het type 'file' (bijv. "Bestandspad" of "Media Bestand")
+const PARAM_FILE_PATH_ID = "01a0108f-3880-752d-b961-9e50e167028d";
+// ID van de parameter "Metadata als JSON-string"
+const PARAM_METADATA_JSON_ID = "01a01e97-7b40-74bf-ac37-1af9fbebf4d1";
 
 export async function importeerStuurbestandAction(payload: StuurbestandPayload) {
   try {
@@ -958,7 +962,7 @@ export async function importeerStuurbestandAction(payload: StuurbestandPayload) 
 
     for (const setItem of payload.Sets) {
       const setValidFrom = setItem.ValidFrom || nu;
-      
+
       const realSetId = await haalOfMaakObjectId(
         setItem.Label,
         OBJ_TYPE_SET,
@@ -1016,6 +1020,86 @@ export async function importeerStuurbestandAction(payload: StuurbestandPayload) 
             createdAt: nu,
             updatedAt: nu,
           });
+        }
+      }
+
+      // 3. BESTANDSPAD PARAMETERWAARDE OPSLAAN / UPDATEN
+      if (mediaItem.RelatiefPad) {
+        const bestaandeParam = await client
+          .select({ id: schema.parameterValues.id })
+          .from(schema.parameterValues)
+          .where(
+            and(
+              eq(schema.parameterValues.targetId, realMediaId),
+              eq(schema.parameterValues.targetType, "object"),
+              eq(schema.parameterValues.parameterId, PARAM_FILE_PATH_ID)
+            )
+          )
+          .get();
+
+        if (!bestaandeParam) {
+          await client.insert(schema.parameterValues).values({
+            id: uuidv7(),
+            targetId: realMediaId,
+            targetType: "object",
+            parameterId: PARAM_FILE_PATH_ID,
+            value: mediaItem.RelatiefPad,
+            isConfidential: Boolean(mediaItem.IsConfidential),
+            validFrom: mediaValidFrom,
+            createdAt: nu,
+            updatedAt: nu,
+          });
+        } else {
+          await client
+            .update(schema.parameterValues)
+            .set({
+              value: mediaItem.RelatiefPad,
+              isConfidential: Boolean(mediaItem.IsConfidential),
+              validFrom: mediaValidFrom,
+              updatedAt: nu,
+            })
+            .where(eq(schema.parameterValues.id, bestaandeParam.id));
+        }
+      }
+
+      // 4. METADATA ALS JSON-STRING PARAMETERWAARDE OPSLAAN / UPDATEN
+      if (mediaItem.Metadata && Object.keys(mediaItem.Metadata).length > 0) {
+        const metadataJsonString = JSON.stringify(mediaItem.Metadata);
+
+        const bestaandeMetadataParam = await client
+          .select({ id: schema.parameterValues.id })
+          .from(schema.parameterValues)
+          .where(
+            and(
+              eq(schema.parameterValues.targetId, realMediaId),
+              eq(schema.parameterValues.targetType, "object"),
+              eq(schema.parameterValues.parameterId, PARAM_METADATA_JSON_ID)
+            )
+          )
+          .get();
+
+        if (!bestaandeMetadataParam) {
+          await client.insert(schema.parameterValues).values({
+            id: uuidv7(),
+            targetId: realMediaId,
+            targetType: "object",
+            parameterId: PARAM_METADATA_JSON_ID,
+            value: metadataJsonString,
+            isConfidential: Boolean(mediaItem.IsConfidential),
+            validFrom: mediaValidFrom,
+            createdAt: nu,
+            updatedAt: nu,
+          });
+        } else {
+          await client
+            .update(schema.parameterValues)
+            .set({
+              value: metadataJsonString,
+              isConfidential: Boolean(mediaItem.IsConfidential),
+              validFrom: mediaValidFrom,
+              updatedAt: nu,
+            })
+            .where(eq(schema.parameterValues.id, bestaandeMetadataParam.id));
         }
       }
     }
