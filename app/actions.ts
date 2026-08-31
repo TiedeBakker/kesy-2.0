@@ -418,89 +418,86 @@ async function hernummerVolgordeVoorSource(client: any, sourceId: string) {
 }
 
 // 1 & 2. Server Action om relatietype of richting aan te passen
-// app/actions.ts (of waar bewerkRelatie gedefinieerd staat)
-
-// app/actions.ts
-
-export async function bewerkRelatie({
-  relationValueId,
-  nieuwRelationId,
-  wisselRichting,
-  validFrom,
-  validTo,
-}: {
+export interface BewerkRelatieInput {
   relationValueId: string;
   nieuwRelationId?: string;
+  nieuweSourceId?: string; // Optioneel om te verhangen naar een nieuwe bron
   wisselRichting?: boolean;
   validFrom?: string | null;
   validTo?: string | null;
-}) {
-  try {
-    const client = activeDb || db;
-    if (!client) return { success: false, error: "Geen actieve database." };
+}
 
-    // 1. Ophalen van de huidige relatie
-    const currentRel = await client
+export async function bewerkRelatie(input: BewerkRelatieInput) {
+  try {
+    const { relationValueId, nieuwRelationId, nieuweSourceId, wisselRichting, validFrom, validTo } = input;
+
+    // 1. Haal de bestaande relatie op
+    const [bestaandeRelatie] = await db
       .select()
       .from(schema.relationValues)
-      .where(eq(schema.relationValues.id, relationValueId))
-      .get();
+      .where(eq(schema.relationValues.id, relationValueId));
 
-    if (!currentRel) {
+    if (!bestaandeRelatie) {
       return { success: false, error: "Relatie niet gevonden." };
     }
 
-    // 2. Bepaal de nieuwe waarden
-    const targetRelationId = nieuwRelationId || currentRel.relationId;
+    const updates: Record<string, any> = {
+      updatedAt: new Date().toISOString(),
+    };
 
-    // Gebruik de correcte schemanamen: sourceId en targetId
-    let newSourceId = currentRel.sourceId;
-    let newTargetId = currentRel.targetId;
-    let newVolgorde = currentRel.volgorde;
-
-    // Als de richting omgewisseld wordt
-    if (wisselRichting) {
-      newSourceId = currentRel.targetId;
-      newTargetId = currentRel.sourceId;
-
-      // Bepaal de hoogste volgorde bij het nieuwe bron-object
-      const bestaandeRelaties = await client
-        .select({ maxVolgorde: max(schema.relationValues.volgorde) })
-        .from(schema.relationValues)
-        .where(eq(schema.relationValues.sourceId, newSourceId));
-
-      const hoogsteVolgorde = bestaandeRelaties[0]?.maxVolgorde ?? 0;
-      newVolgorde = hoogsteVolgorde + 1;
+    if (nieuwRelationId) {
+      updates.relationId = nieuwRelationId;
     }
 
-    // 3. Database Update uitvoeren
-    await client
+    if (validFrom !== undefined) {
+      updates.validFrom = validFrom;
+    }
+
+    if (validTo !== undefined) {
+      updates.validTo = validTo;
+    }
+
+    // 2. Afhandeling van Richting Omdraaien OF Nieuwe Source (Omhangen)
+    let teGebruikenSourceId = bestaandeRelatie.sourceId;
+
+    if (wisselRichting) {
+      // Bron en doel omwisselen
+      const oudeSource = bestaandeRelatie.sourceId;
+      updates.sourceId = bestaandeRelatie.targetId;
+      updates.targetId = oudeSource;
+      teGebruikenSourceId = bestaandeRelatie.targetId;
+    } else if (nieuweSourceId && nieuweSourceId !== bestaandeRelatie.sourceId) {
+      // Omhangen naar een nieuwe bron
+      updates.sourceId = nieuweSourceId;
+      teGebruikenSourceId = nieuweSourceId;
+    }
+
+    // 3. Als de bron veranderd is (door omdraaien of omhangen), volgnummer achteraan zetten
+if (wisselRichting || (nieuweSourceId && nieuweSourceId !== bestaandeRelatie.sourceId)) {
+  const bestaandeRelatiesVanNieuweSource = await db
+    .select({ volgorde: schema.relationValues.volgorde })
+    .from(schema.relationValues)
+    .where(eq(schema.relationValues.sourceId, teGebruikenSourceId));
+
+  const hoogsteVolgorde = bestaandeRelatiesVanNieuweSource.reduce(
+    (max: number, r: { volgorde: number | null }) => Math.max(max, r.volgorde ?? 0),
+    0
+  );
+
+  updates.volgorde = hoogsteVolgorde + 1;
+}
+
+    // 4. Update de relatie in de database
+    await db
       .update(schema.relationValues)
-      .set({
-        relationId: targetRelationId,
-        sourceId: newSourceId,
-        targetId: newTargetId,
-        volgorde: newVolgorde,
-        validFrom: validFrom !== undefined ? validFrom : currentRel.validFrom,
-        validTo: validTo !== undefined ? validTo : currentRel.validTo,
-        updatedAt: new Date().toISOString(),
-      })
+      .set(updates)
       .where(eq(schema.relationValues.id, relationValueId));
 
-    // Herbereken de volgorde van het oude bron-object bij richting-wissel
-    if (wisselRichting) {
-      await hernummerVolgordeVoorSource(client, currentRel.sourceId);
-    }
-
-    revalidatePath("/");
     return { success: true };
-  } catch (error: any) {
-    console.error("Fout bij bewerken relatie:", error);
-    return { success: false, error: error.message || "Fout bij opslaan." };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Fout bij bewerken relatie." };
   }
 }
-// app/actions.ts
-
 // 1. Ophalen van alle definities + parameter sets met hun gekoppelde parameters
 export async function haalParameterFormInformatieOp() {
   try {

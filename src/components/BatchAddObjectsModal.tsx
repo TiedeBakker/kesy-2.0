@@ -55,7 +55,7 @@ export default function BatchAddObjectsModal({
             // Vervang {n} door het nummer, of plak het nummer er achter als {n} er niet in staat
             const label = prefixPattern.includes("{n}")
                 ? prefixPattern.replace("{n}", String(num))
-                : `${prefixPattern} ${num}`;
+                : `${prefixPattern}${num}`;
             nieuw.push(label);
         }
         setGeneratedLabels(nieuw);

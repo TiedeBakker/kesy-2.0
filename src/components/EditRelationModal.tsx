@@ -1,8 +1,7 @@
-// src/components/EditRelationModal.tsx
 "use client";
 
 import { useState, useEffect } from "react";
-import { bewerkRelatie } from "@/app/actions";
+import { bewerkRelatie, zoekObjecten } from "@/app/actions";
 import { toLocalDatetimeInput, toUtcIsoString } from "@/src/lib/dateUtils";
 
 interface EditRelationModalProps {
@@ -22,8 +21,14 @@ export default function EditRelationModal({
 }: EditRelationModalProps) {
   const [selectedRelationId, setSelectedRelationId] = useState("");
   const [wisselRichting, setWisselRichting] = useState(false);
-  
-  // State voor geldighiedsdata
+
+  // Objectpicker state voor Omhangen (nieuwe Source)
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [selectedSourceId, setSelectedSourceId] = useState("");
+  const [selectedSourceLabel, setSelectedSourceLabel] = useState("");
+
+  // State voor geldigheidsdata
   const [validFrom, setValidFrom] = useState("");
   const [validTo, setValidTo] = useState("");
 
@@ -34,8 +39,14 @@ export default function EditRelationModal({
     if (relationValue) {
       setSelectedRelationId(relationValue.relationId || "");
       setWisselRichting(false);
-      
-      // Vul de geldigheidswaarden in als ze op het object staan
+
+      // Reset objectpicker state
+      setSearchQuery("");
+      setSearchResults([]);
+      setSelectedSourceId(relationValue.sourceId || "");
+      setSelectedSourceLabel(relationValue.sourceLabel || "");
+
+      // Vul de geldigheidswaarden in
       setValidFrom(
         relationValue.validFrom ? toLocalDatetimeInput(relationValue.validFrom) : ""
       );
@@ -45,6 +56,26 @@ export default function EditRelationModal({
       setError(null);
     }
   }, [relationValue]);
+
+  // Live zoeken/filteren van bron-objecten
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      const res = await zoekObjecten(searchQuery);
+      if (res.success) {
+        // Sluit het huidige target object uit van de zoekresultaten
+        const targetId = relationValue?.targetId;
+        const gefilterd = (res.objecten || []).filter((o: any) => o.id !== targetId);
+        setSearchResults(gefilterd);
+      }
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery, relationValue]);
 
   if (!isOpen || !relationValue) return null;
 
@@ -57,6 +88,7 @@ export default function EditRelationModal({
     const res = await bewerkRelatie({
       relationValueId: relId,
       nieuwRelationId: selectedRelationId !== relationValue.relationId ? selectedRelationId : undefined,
+      nieuweSourceId: selectedSourceId !== relationValue.sourceId ? selectedSourceId : undefined,
       wisselRichting,
       validFrom: validFrom ? toUtcIsoString(validFrom) : null,
       validTo: validTo ? toUtcIsoString(validTo) : null,
@@ -74,10 +106,10 @@ export default function EditRelationModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-      <div className="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-md p-6 space-y-4 shadow-2xl">
+      <div className="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-lg p-6 space-y-4 shadow-2xl">
         <div className="flex justify-between items-center border-b border-slate-800 pb-3">
           <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
-            <span>✏️</span> Relatie Aanpassen
+            <span>✏️</span> Relatie / Omhangen Aanpassen
           </h3>
           <button onClick={onClose} className="text-slate-400 hover:text-white">✕</button>
         </div>
@@ -103,6 +135,78 @@ export default function EditRelationModal({
             ))}
           </select>
         </div>
+
+        {/* BRON OBJECT PICKER (OMHANGEN) */}
+        {!wisselRichting && (
+          <div className="space-y-1.5">
+            <label className="text-xs text-slate-300 font-semibold block">
+              Bron Object (Omhangen naar andere houder/kast)
+            </label>
+
+            <div className="relative">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Zoek een nieuw bron-object..."
+                className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-xs text-slate-100 outline-none focus:border-sky-500 transition"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => {
+                    setSearchQuery("");
+                    setSearchResults([]);
+                  }}
+                  className="absolute right-2.5 top-2.5 text-xs text-slate-500 hover:text-slate-300"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+
+            {/* HUIDIGE OF NIEUW GESELECTEERDE BRON */}
+            {selectedSourceId && (
+              <div className="p-2 bg-emerald-950/40 border border-emerald-800/80 rounded-lg text-xs flex justify-between items-center text-emerald-300">
+                <span>
+                  Huidige Bron: <strong>{selectedSourceLabel || selectedSourceId}</strong>
+                </span>
+                <span className="text-[10px] font-mono text-emerald-400/70">ID: {selectedSourceId}</span>
+              </div>
+            )}
+
+            {/* ZOEKSUGGESTIES */}
+            {searchResults.length > 0 && (
+              <div className="max-h-40 overflow-y-auto bg-slate-950 border border-slate-800 rounded-lg divide-y divide-slate-800/60">
+                {searchResults.map((obj) => {
+                  const isSelected = selectedSourceId === obj.id;
+                  return (
+                    <button
+                      key={obj.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedSourceId(obj.id);
+                        setSelectedSourceLabel(obj.label);
+                        setSearchQuery("");
+                        setSearchResults([]);
+                      }}
+                      className={`w-full text-left p-2.5 text-xs transition flex justify-between items-center ${
+                        isSelected
+                          ? "bg-sky-950/80 text-sky-200 font-bold border-l-4 border-sky-400"
+                          : "text-slate-300 hover:bg-slate-800/70"
+                      }`}
+                    >
+                      <div>
+                        <span className="block">{obj.label}</span>
+                        {obj.type && <span className="text-[10px] text-slate-500 uppercase">{obj.type}</span>}
+                      </div>
+                      <span className="text-[10px] text-slate-500 font-mono ml-2">{obj.id}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* GELDIGHEIDSDATUMS (validFrom & validTo) */}
         <div className="grid grid-cols-2 gap-3 pt-1">

@@ -1,0 +1,31 @@
+{
+  "id": "boek_rapport_custom_sql",
+  "naam": "Custom Boek Rapport",
+  "beschrijving": "Rapport opgebouwd via opvolgende SQL queries per niveau.",
+  "toonNummering": true,
+  "weergaveStijl": "boek",
+  "levels": [
+    {
+      "level": 0,
+      "headingTag": "h1",
+      "weergaveType": "template",
+      "titelTemplate": "{{Header1}}",
+      "queryTemplate": "SELECT o.label AS Header1, o.id AS Id1, rv.target_id AS Id2 FROM objects o JOIN relation_values rv ON rv.source_id = o.id WHERE o.id = :startId AND o.deleted_at IS NULL ORDER BY rv.volgorde"
+    },
+    {
+      "level": 1,
+      "headingTag": "h2",
+      "weergaveType": "template",
+      "titelTemplate": "{{Header2}}",
+      "pageBreakBefore": true,
+      "queryTemplate": "SELECT o.label AS Header2, o.id AS Id2, rv.target_id AS Id3 FROM objects o JOIN relation_values rv ON rv.source_id = o.id WHERE o.id = :Id2 AND o.deleted_at IS NULL ORDER BY rv.volgorde"
+    },
+    {
+      "level": 2,
+      "headingTag": "h3",
+      "weergaveType": "tabel",
+      "titelTemplate": "{{Header3}}",
+      "queryTemplate": "SELECT o.label AS Header3, o.id AS Id3 FROM objects o WHERE o.id = :Id3 AND o.deleted_at IS NULL"
+    }
+  ]
+}

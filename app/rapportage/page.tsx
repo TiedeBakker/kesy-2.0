@@ -5,6 +5,7 @@ import { zoekObjecten } from "@/app/actions";
 import {
   haalStuurbestandenOp,
   genereerRapport,
+  genereerPdfRapport,
   ReportConfig,
 } from "./actions";
 
@@ -27,6 +28,7 @@ export default function RapportagePagina() {
 
   // Uitvoer state
   const [isLaden, setIsLaden] = useState(false);
+  const [isPdfLaden, setIsPdfLaden] = useState(false);
   const [rapportHtml, setRapportHtml] = useState<string | null>(null);
   const [foutmelding, setFoutmelding] = useState<string | null>(null);
 
@@ -92,6 +94,33 @@ export default function RapportagePagina() {
     URL.revokeObjectURL(url);
   };
 
+  const handleDownloadPdf = async () => {
+    if (!geselecteerdObject || !geselecteerdBestand) return;
+
+    setIsPdfLaden(true);
+    try {
+      const res = await genereerPdfRapport(
+        geselecteerdObject.id,
+        geselecteerdBestand
+      );
+
+      if (res.success && res.pdfBase64) {
+        const link = document.createElement("a");
+        link.href = `data:application/pdf;base64,${res.pdfBase64}`;
+        link.download = `rapport_${geselecteerdObject.label.toLowerCase().replace(/\s+/g, "_")}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        setFoutmelding(res.error || "PDF genereren mislukt.");
+      }
+    } catch (err: any) {
+      setFoutmelding("Er is een onverwachte fout opgetreden bij het genereren van de PDF.");
+    } finally {
+      setIsPdfLaden(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* PAGINA KOP */}
@@ -107,8 +136,8 @@ export default function RapportagePagina() {
         <button
           onClick={() => setActieveTab("basis")}
           className={`px-4 py-2 text-sm font-semibold border-b-2 transition-all ${actieveTab === "basis"
-            ? "border-emerald-500 text-emerald-400"
-            : "border-transparent text-slate-400 hover:text-slate-200"
+              ? "border-emerald-500 text-emerald-400"
+              : "border-transparent text-slate-400 hover:text-slate-200"
             }`}
         >
           Basisrapportages
@@ -116,8 +145,8 @@ export default function RapportagePagina() {
         <button
           onClick={() => setActieveTab("custom")}
           className={`px-4 py-2 text-sm font-semibold border-b-2 transition-all ${actieveTab === "custom"
-            ? "border-emerald-500 text-emerald-400"
-            : "border-transparent text-slate-400 hover:text-slate-200"
+              ? "border-emerald-500 text-emerald-400"
+              : "border-transparent text-slate-400 hover:text-slate-200"
             }`}
         >
           Aangepast (Binnenkort)
@@ -184,10 +213,15 @@ export default function RapportagePagina() {
                   );
                   setGeselecteerdBestand(b || null);
                 }}
-                className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-200 text-sm focus:outline-none focus:border-emerald-500"
+                className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-200 text-sm focus:outline-none focus:border-emerald-500 cursor-pointer"
               >
+                {stuurbestanden.length === 0 && (
+                  <option value="" disabled className="text-slate-900 bg-slate-100">
+                    Geen stuurbestanden gevonden...
+                  </option>
+                )}
                 {stuurbestanden.map((b) => (
-                  <option key={b.id} value={b.id}>
+                  <option key={b.id} value={b.id} className="text-slate-900 bg-slate-100 py-1">
                     {b.naam}
                   </option>
                 ))}
@@ -228,12 +262,21 @@ export default function RapportagePagina() {
                 </h2>
 
                 {rapportHtml && (
-                  <button
-                    onClick={handleOpslaan}
-                    className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold rounded-md shadow transition flex items-center gap-1.5"
-                  >
-                    <span>💾</span> Opslaan als HTML
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleOpslaan}
+                      className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold rounded-md shadow transition flex items-center gap-1.5"
+                    >
+                      <span>💾</span> Opslaan als HTML
+                    </button>
+                    <button
+                      onClick={handleDownloadPdf}
+                      disabled={isPdfLaden}
+                      className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 disabled:bg-slate-800 disabled:text-slate-500 text-white text-xs font-semibold rounded-md shadow transition flex items-center gap-1.5"
+                    >
+                      <span>📄</span> {isPdfLaden ? "PDF maken..." : "Exporteer als PDF"}
+                    </button>
+                  </div>
                 )}
               </div>
 

@@ -20,29 +20,52 @@ function getDArchievenBasePath(): string {
 /**
  * 1. Haal de mappenstructuur op onder DArchieven
  */
-export async function haalDArchievenMappenOp(): Promise<{ success: boolean; mappen?: string[]; error?: string }> {
+// export async function haalDArchievenMappenOp(): Promise<{ success: boolean; mappen?: string[]; error?: string }> {
+//     try {
+//         const basePath = getDArchievenBasePath();
+//         if (!fs.existsSync(basePath)) {
+//             return { success: false, error: `Map niet gevonden op schijf: ${basePath}` };
+//         }
+
+//         const mappen: string[] = [];
+
+//         function scanDir(currentPath: string, relativePath: string = "") {
+//             const items = fs.readdirSync(currentPath, { withFileTypes: true });
+//             for (const item of items) {
+//                 if (item.isDirectory()) {
+//                     const subRel = relativePath ? `${relativePath}/${item.name}` : item.name;
+//                     mappen.push(subRel);
+//                     scanDir(path.join(currentPath, item.name), subRel);
+//                 }
+//             }
+//         }
+
+//         scanDir(basePath);
+//         mappen.sort();
+//         return { success: true, mappen };
+//     } catch (err: any) {
+//         return { success: false, error: err.message || "Fout bij ophalen mappen." };
+//     }
+// }
+/**
+ * 1. Haal alle submappen op binnen een specifieke (relatieve) map.
+ */
+export async function haalSubmappenOp(relatiefPad: string = ""): Promise<{ success: boolean; mappen?: string[]; error?: string }> {
     try {
         const basePath = getDArchievenBasePath();
-        if (!fs.existsSync(basePath)) {
-            return { success: false, error: `Map niet gevonden op schijf: ${basePath}` };
+        const targetFolder = relatiefPad ? path.join(basePath, relatiefPad.replace(/\//g, "\\")) : basePath;
+
+        if (!fs.existsSync(targetFolder)) {
+            return { success: false, error: `Map niet gevonden: ${relatiefPad}` };
         }
 
-        const mappen: string[] = [];
+        const items = fs.readdirSync(targetFolder, { withFileTypes: true });
+        const submappen = items
+            .filter((item) => item.isDirectory())
+            .map((item) => item.name)
+            .sort();
 
-        function scanDir(currentPath: string, relativePath: string = "") {
-            const items = fs.readdirSync(currentPath, { withFileTypes: true });
-            for (const item of items) {
-                if (item.isDirectory()) {
-                    const subRel = relativePath ? `${relativePath}/${item.name}` : item.name;
-                    mappen.push(subRel);
-                    scanDir(path.join(currentPath, item.name), subRel);
-                }
-            }
-        }
-
-        scanDir(basePath);
-        mappen.sort();
-        return { success: true, mappen };
+        return { success: true, mappen: submappen };
     } catch (err: any) {
         return { success: false, error: err.message || "Fout bij ophalen mappen." };
     }
