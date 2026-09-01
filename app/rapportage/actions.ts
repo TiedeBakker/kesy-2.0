@@ -15,7 +15,7 @@ export interface ReportConfigLevel {
     headingTag?: "h1" | "h2" | "h3" | "h4" | "h5" | "p";
     weergaveType?: "lijst" | "tabel" | "template";
     titelTemplate?: string;
-    tekstTemplate?: string;
+    tekstTemplate?: string | string[];
     pageBreakBefore?: boolean;
     toonNummering?: boolean;
     // Opties voor mini-inhoudsopgave op dit specifieke niveau:
@@ -115,8 +115,9 @@ async function genereerRapportViaSql(
         return opgebouwdeQuery;
     }
 
-    function vulTemplateIn(template: string, row: Record<string, any>): string {
-        return template.replace(/\{\{(\w+)\}\}/g, (_, key) => row[key] ?? "");
+    function vulTemplateIn(template: string | string[], row: Record<string, any>): string {
+        const sjabloonTekst = Array.isArray(template) ? template.join("\n") : template;
+        return sjabloonTekst.replace(/\{\{(\w+)\}\}/g, (_, key) => row[key] ?? "");
     }
 
     // Herbruikbare generator voor zowel Hoofd-TOC als Sub-TOC's
@@ -185,8 +186,41 @@ async function genereerRapportViaSql(
         if (rows.length === 0) return "";
 
         let niveauHtml = "";
-        let childIndex = 1;
 
+        // MODUS 1: WEERGAVE ALS ÉÉN GEZAMENLIJKE TABEL VOOR ALLE ROWS OP DIT NIVEAU
+        if (levelConfig.weergaveType === "tabel") {
+            const kolommen = Object.keys(rows[0]).filter(
+                (k) => !k.startsWith("Id") && !k.startsWith("Header") && k !== "startId"
+            );
+
+            if (kolommen.length > 0) {
+                const pageBreakStyle = levelConfig.pageBreakBefore ? "style='page-break-before: always;'" : "";
+                niveauHtml += `<div class="rapport-sectie" ${pageBreakStyle}>\n`;
+
+                niveauHtml += `<table style="width:100%; border-collapse: collapse; margin-top: 0.5rem; margin-bottom: 1rem; font-size: 13px;">\n`;
+                niveauHtml += `  <thead>\n    <tr style="background-color: #f8fafc; border-bottom: 2px solid #cbd5e1;">\n`;
+                for (const k of kolommen) {
+                    const schoneKop = k.replace(/_/g, " ").toUpperCase();
+                    niveauHtml += `      <th style="text-align:left; padding:6px 8px; font-weight:600; color:#334155;">${schoneKop}</th>\n`;
+                }
+                niveauHtml += `    </tr>\n  </thead>\n  <tbody>\n`;
+
+                for (const row of rows) {
+                    niveauHtml += `    <tr style="border-bottom: 1px solid #e2e8f0;">\n`;
+                    for (const k of kolommen) {
+                        niveauHtml += `      <td style="padding:6px 8px; color:#334155;">${row[k] ?? "-"}</td>\n`;
+                    }
+                    niveauHtml += `    </tr>\n`;
+                }
+
+                niveauHtml += `  </tbody>\n</table>\n`;
+                niveauHtml += `</div>\n`;
+            }
+            return niveauHtml;
+        }
+
+        // MODUS 2: STANDAARD TEMPLATE / SECTIE-SGEREELDE WEERGAVE
+        let childIndex = 1;
         const levelToonNummering = levelConfig.toonNummering ?? config.toonNummering ?? true;
 
         for (const row of rows) {
@@ -223,19 +257,7 @@ async function genereerRapportViaSql(
 
             if (levelConfig.tekstTemplate) {
                 const tekst = vulTemplateIn(levelConfig.tekstTemplate, huidigeRijContext);
-                // Gebruik een div met de class 'richtext-content' i.p.v. een vaste <p>
                 niveauHtml += `  <div class="richtext-content">${tekst}</div>\n`;
-            }
-
-            if (levelConfig.weergaveType === "tabel") {
-                const kolommen = Object.keys(row).filter((k) => !k.startsWith("Id") && !k.startsWith("Header"));
-                if (kolommen.length > 0) {
-                    niveauHtml += `<table style="width:100%; border-collapse: collapse; margin-bottom: 1rem;"><thead><tr>`;
-                    for (const k of kolommen) niveauHtml += `<th style="text-align:left; padding:6px; border-bottom: 2px solid #475569;">${k}</th>`;
-                    niveauHtml += `</tr></thead><tbody><tr>`;
-                    for (const k of kolommen) niveauHtml += `<td style="padding:6px; border-bottom: 1px solid #334155;">${row[k] ?? "-"}</td>`;
-                    niveauHtml += `</tr></tbody></table>`;
-                }
             }
 
             // Vervolgniveaus verwerken
@@ -301,7 +323,7 @@ async function genereerRapportViaSql(
             }
             if (level0Config.tekstTemplate) {
                 const tekst = vulTemplateIn(level0Config.tekstTemplate, { startId: startObjectId, ...row });
-                niveau0Html += `  <p>${tekst}</p>\n`;
+                niveau0Html += `  <div class="richtext-content">${tekst}</div>\n`;
             }
             niveau0Html += `</div>\n`;
         }
@@ -640,77 +662,76 @@ export async function genereerPdfRapport(
                     th { background-color: #f8fafc; font-weight: 600; color: #334155; }
                     @page { margin: 15mm; }
 
-
                     /* Rijke tekst & Tiptap Styling */
-.richtext-content {
-    margin-bottom: 1rem;
-    font-size: 13px;
-    color: #334155;
-}
-.richtext-content p {
-    margin-top: 0;
-    margin-bottom: 0.5rem;
-}
-.richtext-content ul {
-    list-style-type: disc;
-    padding-left: 1.5rem;
-    margin-bottom: 0.75rem;
-}
-.richtext-content ol {
-    list-style-type: decimal;
-    padding-left: 1.5rem;
-    margin-bottom: 0.75rem;
-}
-.richtext-content blockquote {
-    border-left: 4px solid #0284c7;
-    padding-left: 1rem;
-    font-style: italic;
-    color: #475569;
-    margin: 1rem 0;
-}
+                    .richtext-content {
+                        margin-bottom: 1rem;
+                        font-size: 13px;
+                        color: #334155;
+                    }
+                    .richtext-content p {
+                        margin-top: 0;
+                        margin-bottom: 0.5rem;
+                    }
+                    .richtext-content ul {
+                        list-style-type: disc;
+                        padding-left: 1.5rem;
+                        margin-bottom: 0.75rem;
+                    }
+                    .richtext-content ol {
+                        list-style-type: decimal;
+                        padding-left: 1.5rem;
+                        margin-bottom: 0.75rem;
+                    }
+                    .richtext-content blockquote {
+                        border-left: 4px solid #0284c7;
+                        padding-left: 1rem;
+                        font-style: italic;
+                        color: #475569;
+                        margin: 1rem 0;
+                    }
 
-/* Callout / Subtitel toelichtingsblokken */
-.toelichting-box {
-    background-color: #f0f9ff;
-    border-left: 4px solid #0284c7;
-    padding: 12px 16px;
-    border-radius: 4px;
-    margin-bottom: 1rem;
-}
+                    /* Callout / Subtitel toelichtingsblokken */
+                    .toelichting-box {
+                        background-color: #f0f9ff;
+                        border-left: 4px solid #0284c7;
+                        padding: 12px 16px;
+                        border-radius: 4px;
+                        margin-bottom: 1rem;
+                    }
 
-/* Afbeeldingen & Layouts uit TipTap Editor */
-.richtext-content img {
-    max-width: 100%;
-    height: auto;
-    display: block;
-    border-radius: 4px;
-    margin: 1rem 0;
-}
-.richtext-content img[data-layout="inline-left"] {
-    float: left;
-    margin-right: 1.5rem;
-    margin-bottom: 1rem;
-    max-width: 50%;
-}
-.richtext-content img[data-layout="inline-right"] {
-    float: right;
-    margin-left: 1.5rem;
-    margin-bottom: 1rem;
-    max-width: 50%;
-}
-.richtext-content img[data-layout="inline-center"] {
-    margin-left: auto;
-    margin-right: auto;
-}
-.richtext-content img[data-layout="span-all"] {
-    width: 100%;
-    max-width: 100%;
-}
+                    /* Afbeeldingen & Layouts uit TipTap Editor */
+                    .richtext-content img {
+                        max-width: 100%;
+                        height: auto;
+                        display: block;
+                        border-radius: 4px;
+                        margin: 1rem 0;
+                    }
+                    .richtext-content img[data-layout="inline-left"] {
+                        float: left;
+                        margin-right: 1.5rem;
+                        margin-bottom: 1rem;
+                        max-width: 50%;
+                    }
+                    .richtext-content img[data-layout="inline-right"] {
+                        float: right;
+                        margin-left: 1.5rem;
+                        margin-bottom: 1rem;
+                        max-width: 50%;
+                    }
+                    .richtext-content img[data-layout="inline-center"] {
+                        margin-left: auto;
+                        margin-right: auto;
+                    }
+                    .richtext-content img[data-layout="span-all"] {
+                        width: 100%;
+                        max-width: 100%;
+                    }
                 </style>
             </head>
             <body>
                 <header>
-                    <h1>Dit hoeft er niet in ${config.naam}</h1>
+                    <h1>${config.naam}</h1>
                     ${config.beschrijving ? `<p>${config.beschrijving}</p>` : ""}
                 </header>
                 <main>

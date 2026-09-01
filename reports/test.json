@@ -16,8 +16,8 @@
       "toonNummering": false,
       "weergaveType": "template",
       "titelTemplate": "{{Header1}}",
-      "queryTemplate": "SELECT o.label AS Header1, o.id AS startId, value FROM objects o left join (SELECT * FROM parameter_values WHERE parameter_id = '019fc74c-cf8c-74ff-a3b6-b6d21c651a19') AS p on o.id = p.target_id WHERE o.id = :startId AND o.deleted_at IS NULL",
-      "tekstTemplate": "Dit is een test van de11212121 tekst template {{value}} voor niveau 0. De waarde van Header1 is: {{Header1}}"
+      "queryTemplate": "WITH RECURSIVE object_tree(id) AS (SELECT :startId UNION SELECT rv.target_id FROM object_tree ot JOIN relation_values rv ON rv.source_id = ot.id WHERE rv.deleted_at IS NULL) SELECT o.label AS Header1, o.id AS startId, p.value, COALESCE(SUM(CASE WHEN pv.parameter_id = '019fad6f-c149-7795-b3e5-751c8b2b7949' THEN CAST(pv.value AS INTEGER) ELSE 0 END), 0) AS totaal_aantal_insecten, COUNT(DISTINCT CASE WHEN pv.parameter_id = '019fce6b-626f-7609-b67c-17fb251e36e7' THEN pv.value END) AS aantal_soorten FROM objects o LEFT JOIN parameter_values p ON o.id = p.target_id AND p.parameter_id = '019fc74c-cf8c-74ff-a3b6-b6d21c651a19' AND p.deleted_at IS NULL LEFT JOIN object_tree ot ON 1=1 LEFT JOIN parameter_values pv ON pv.target_id = ot.id AND pv.target_type = 'object' AND pv.deleted_at IS NULL WHERE o.id = :startId AND o.deleted_at IS NULL GROUP BY o.id, o.label, p.value;",
+      "tekstTemplate": "Totaal aantal insekten is nu {{totaal_aantal_insecten}} een test van de11212121 tekst template {{value}} voor niveau 0.<div style='page-break-before: always;'> De waarde van Header1 is: {{Header1}}</div>"
     },
     {
       "level": 1,
@@ -25,9 +25,10 @@
       "toonNummering": true,
       "weergaveType": "template",
       "titelTemplate": "{{Header2}}",
-      "queryTemplate": "SELECT o.label AS Header2, o.id AS Id2 FROM objects o JOIN relation_values rv ON rv.target_id = o.id WHERE rv.source_id = :startId AND o.deleted_at IS NULL AND rv.deleted_at IS NULL ORDER BY rv.volgorde",
-      "toonSubInhoudsopgave": true,    
-      "subInhoudsopgaveDiepte": 5
+      "queryTemplate": "SELECT o.label AS Header2, o.id AS Id2, (WITH RECURSIVE branch_tree(id) AS (SELECT o.id UNION SELECT r.target_id FROM branch_tree bt JOIN relation_values r ON r.source_id = bt.id WHERE r.deleted_at IS NULL) SELECT COALESCE(SUM(CASE WHEN pv.parameter_id = '019fad6f-c149-7795-b3e5-751c8b2b7949' THEN CAST(pv.value AS INTEGER) ELSE 0 END), 0) FROM branch_tree bt JOIN parameter_values pv ON pv.target_id = bt.id AND pv.target_type = 'object' AND pv.deleted_at IS NULL) AS tak_totaal_insecten, (WITH RECURSIVE branch_tree(id) AS (SELECT o.id UNION SELECT r.target_id FROM branch_tree bt JOIN relation_values r ON r.source_id = bt.id WHERE r.deleted_at IS NULL) SELECT COUNT(DISTINCT CASE WHEN pv.parameter_id = '019fce6b-626f-7609-b67c-17fb251e36e7' THEN pv.value END) FROM branch_tree bt JOIN parameter_values pv ON pv.target_id = bt.id AND pv.target_type = 'object' AND pv.deleted_at IS NULL) AS tak_aantal_soorten FROM relation_values rv JOIN objects o ON o.id = rv.target_id WHERE rv.source_id = :startId AND o.deleted_at IS NULL AND rv.deleted_at IS NULL ORDER BY rv.volgorde",
+      "tekstTemplate": "Totaal aantal insekten is nu {{tak_totaal_insecten}} een test van de tekst template {{value}} voor niveau 1.<div style='page-break-before: always;'> De waarde van Header2 is: {{Header2}}</div>",
+      "toonSubInhoudsopgave": true,
+      "subInhoudsopgaveDiepte": 2
     },
     {
       "level": 2,
@@ -45,6 +46,14 @@
       "weergaveType": "tabel",
       "titelTemplate": "{{Header4}}",
       "queryTemplate": "SELECT o.label AS Header4, o.id AS Id4 FROM objects o JOIN relation_values rv ON rv.target_id = o.id WHERE rv.source_id = :Id3 AND o.deleted_at IS NULL AND rv.deleted_at IS NULL ORDER BY rv.volgorde"
+    },
+    {
+      "level": 4,
+      "headingTag": "h4",
+      "toonNummering": true,
+      "weergaveType": "tabel",
+      "titelTemplate": "{{Header5}}",
+      "queryTemplate": "SELECT o.label AS Header5, o.id AS Id5 FROM objects o JOIN relation_values rv ON rv.target_id = o.id WHERE rv.source_id = :Id4 AND o.deleted_at IS NULL AND rv.deleted_at IS NULL ORDER BY rv.volgorde"
     }
   ]
 }

@@ -1,0 +1,63 @@
+{
+    "id": "DMF_test_rapport_custom_sql",
+    "naam": "DMF TEST Custom Rapport",
+    "beschrijving": "Rapport opgebouwd via opvolgende SQL queries per niveau.",
+    "weergaveStijl": "boek",
+    "inhoudsopgave": {
+        "tonen": true,
+        "maxDiepte": 5,
+        "titel": "Inhoudsopgave 123",
+        "pageBreakAfter": true
+    },
+    "levels": [
+        {
+            "level": 0,
+            "headingTag": "h1",
+            "toonNummering": false,
+            "weergaveType": "template",
+            "titelTemplate": "{{Header1}}",
+            "queryTemplate": "WITH RECURSIVE object_tree(id) AS (SELECT :startId UNION SELECT rv.target_id FROM object_tree ot JOIN relation_values rv ON rv.source_id = ot.id WHERE rv.deleted_at IS NULL) SELECT o.label AS Header1, o.id AS startId, p.value, COALESCE(SUM(CASE WHEN pv.parameter_id = '019fad6f-c149-7795-b3e5-751c8b2b7949' THEN CAST(pv.value AS INTEGER) ELSE 0 END), 0) AS totaal_aantal_insecten, COUNT(DISTINCT CASE WHEN pv.parameter_id = '019fce6b-626f-7609-b67c-17fb251e36e7' THEN pv.value END) AS aantal_soorten FROM objects o LEFT JOIN parameter_values p ON o.id = p.target_id AND p.parameter_id = '019fc74c-cf8c-74ff-a3b6-b6d21c651a19' AND p.deleted_at IS NULL LEFT JOIN object_tree ot ON 1=1 LEFT JOIN parameter_values pv ON pv.target_id = ot.id AND pv.target_type = 'object' AND pv.deleted_at IS NULL WHERE o.id = :startId AND o.deleted_at IS NULL GROUP BY o.id, o.label, p.value;",
+            "tekstTemplate": [
+                "<div style='page-break-before: always;'>",
+                "Dit is het huidige overzicht Tiede otaal aantal insekten is nu {{totaal_aantal_insecten}} ",
+                "een test van de11212121 tekst template {{value}} voor niveau 0.",
+                
+                "  De waarde van Header1 is: {{Header1}}",
+                "</div>"
+            ]
+        },
+        {
+            "level": 1,
+            "headingTag": "h2",
+            "toonNummering": true,
+            "weergaveType": "template",
+            "titelTemplate": "{{Header2}}",
+            "queryTemplate": "SELECT o.label AS Header2, o.id AS Id2, (WITH RECURSIVE branch_tree(id) AS (SELECT o.id UNION SELECT r.target_id FROM branch_tree bt JOIN relation_values r ON r.source_id = bt.id WHERE r.deleted_at IS NULL) SELECT COALESCE(SUM(CASE WHEN pv.parameter_id = '019fad6f-c149-7795-b3e5-751c8b2b7949' THEN CAST(pv.value AS INTEGER) ELSE 0 END), 0) FROM branch_tree bt JOIN parameter_values pv ON pv.target_id = bt.id AND pv.target_type = 'object' AND pv.deleted_at IS NULL) AS tak_totaal_insecten, (WITH RECURSIVE branch_tree(id) AS (SELECT o.id UNION SELECT r.target_id FROM branch_tree bt JOIN relation_values r ON r.source_id = bt.id WHERE r.deleted_at IS NULL) SELECT COUNT(DISTINCT CASE WHEN pv.parameter_id = '019fce6b-626f-7609-b67c-17fb251e36e7' THEN pv.value END) FROM branch_tree bt JOIN parameter_values pv ON pv.target_id = bt.id AND pv.target_type = 'object' AND pv.deleted_at IS NULL) AS tak_aantal_soorten FROM relation_values rv JOIN objects o ON o.id = rv.target_id WHERE rv.source_id = :startId AND o.deleted_at IS NULL AND rv.deleted_at IS NULL ORDER BY rv.volgorde",
+            "tekstTemplate": "Totaal aantal insekten is nu {{tak_totaal_insecten}} een test van de tekst template {{value}} voor niveau 1.<div style='page-break-before: always;'> De waarde van Header2 is: {{Header2}}</div>",
+            "toonSubInhoudsopgave": true,
+            "subInhoudsopgaveDiepte": 2
+        },
+        {
+            "level": 2,
+            "headingTag": "h3",
+            "toonNummering": true,
+            "weergaveType": "template",
+            "titelTemplate": "Niveau 3 {{Header3}}",
+            "pageBreakBefore": true,
+            "queryTemplate": "SELECT o.label AS Header3, o.id AS Id3 FROM objects o JOIN relation_values rv ON rv.target_id = o.id WHERE rv.source_id = :Id2 AND o.deleted_at IS NULL AND rv.deleted_at IS NULL ORDER BY rv.volgorde"
+        },
+        {
+            "level": 3,
+            "headingTag": "h4",
+            "toonNummering": true,
+            "weergaveType": "template",
+            "titelTemplate": "{{Header4}}",
+            "queryTemplate": "SELECT o.label AS Header4, o.id AS Id4 FROM objects o JOIN relation_values rv ON rv.target_id = o.id WHERE rv.source_id = :Id3 AND o.deleted_at IS NULL AND rv.deleted_at IS NULL ORDER BY rv.volgorde"
+        },
+        {
+            "level": 4,
+            "weergaveType": "tabel",
+            "queryTemplate": "SELECT o.label AS Header5, o.id AS Id5, p_aantal.value AS aantal, p_gegeven.value AS gegeven_taxon_naam, p_formeel.value AS formele_taxon_naam, rt.nl_naam AS nl_naam, (SELECT json_extract(value, '$.name') FROM json_each(rt.taxonomische_boom) WHERE json_extract(value, '$.rank') = 'family') AS familie FROM objects o JOIN relation_values rv ON rv.target_id = o.id LEFT JOIN parameter_values p_aantal ON p_aantal.target_id = o.id AND p_aantal.parameter_id = '019fad6f-c149-7795-b3e5-751c8b2b7949' AND p_aantal.deleted_at IS NULL LEFT JOIN parameter_values p_gegeven ON p_gegeven.target_id = o.id AND p_gegeven.parameter_id = '019fce6b-626f-7609-b67c-17fb251e36e7' AND p_gegeven.deleted_at IS NULL LEFT JOIN parameter_values p_formeel ON p_formeel.target_id = o.id AND p_formeel.parameter_id = '019fd14a-991d-7265-b929-8da2ee294507' AND p_formeel.deleted_at IS NULL LEFT JOIN relevante_taxa rt ON rt.taxon_naam = p_formeel.value AND p_formeel.value != 'niet bekend in COL' AND rt.deleted_at IS NULL WHERE rv.source_id = :Id4 AND o.deleted_at IS NULL AND rv.deleted_at IS NULL ORDER BY rv.volgorde"
+        }
+    ]
+}

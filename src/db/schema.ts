@@ -162,6 +162,7 @@ export const parameterSetParameters = sqliteTable("parameter_set_parameters", {
 //
 // 8. RELEVANTE TAXA (COL Cache)
 //
+
 export const relevanteTaxa = sqliteTable("relevante_taxa", {
   id: text("id").primaryKey(),
   taxonNaam: text("taxon_naam").notNull(),
@@ -169,6 +170,7 @@ export const relevanteTaxa = sqliteTable("relevante_taxa", {
   colIdentifier: text("col_identifier"),
   gbifIdentifier: text("gbif_identifier"),
   nlNaam: text("nl_naam"),
+  taxonomischeBoom: text("taxonomische_boom"), // <-- NIEUW: JSON string met de volledige hiërarchie
   updatedAt: text("updated_at")
     .notNull()
     .$defaultFn(currentTimestamp),
