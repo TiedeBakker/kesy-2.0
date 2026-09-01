@@ -18,6 +18,9 @@ export interface ReportConfigLevel {
     tekstTemplate?: string;
     pageBreakBefore?: boolean;
     toonNummering?: boolean;
+    // Opties voor mini-inhoudsopgave op dit specifieke niveau:
+    toonSubInhoudsopgave?: boolean;
+    subInhoudsopgaveDiepte?: number; // Hoeveel niveaus dieper getoond moeten worden (standaard 1)
 }
 
 export interface ReportConfigInhoudsopgave {
@@ -44,6 +47,7 @@ interface TocItem {
     levelIndex: number;
     headingTag: string;
 }
+
 interface RelationItem {
     targetId: string;
     relationId: string;
@@ -62,7 +66,6 @@ export async function haalStuurbestandenOp(): Promise<ReportConfig[]> {
     try {
         const reportsDir = path.join(process.cwd(), "reports");
 
-        // Controleer of de map bestaat, zo niet: maak hem aan
         try {
             await fs.access(reportsDir);
         } catch {
@@ -91,6 +94,7 @@ export async function haalStuurbestandenOp(): Promise<ReportConfig[]> {
         return [];
     }
 }
+
 /**
  * GENERATOR STRATEGIE 1: SQL-driven verwerking
  */
@@ -113,6 +117,53 @@ async function genereerRapportViaSql(
 
     function vulTemplateIn(template: string, row: Record<string, any>): string {
         return template.replace(/\{\{(\w+)\}\}/g, (_, key) => row[key] ?? "");
+    }
+
+    // Herbruikbare generator voor zowel Hoofd-TOC als Sub-TOC's
+    function genereerTocHtml(
+        items: TocItem[],
+        titel?: string,
+        isSubToc: boolean = false
+    ): string {
+        if (items.length === 0) return "";
+
+        const containerClass = isSubToc ? "sub-inhoudsopgave-container" : "inhoudsopgave-container";
+        const containerStyle = isSubToc
+            ? "margin: 0.75rem 0 1.25rem 0; padding: 10px 14px; background-color: #f8fafc; border-left: 3px solid #0284c7; border-radius: 4px;"
+            : "page-break-after: always; margin-bottom: 2rem;";
+
+        let html = `<div class="${containerClass}" style="${containerStyle}">\n`;
+
+        if (titel) {
+            const titelStyle = isSubToc
+                ? "font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #475569; margin: 0 0 8px 0;"
+                : "font-size: 20px; font-weight: bold; border-bottom: 2px solid #0f172a; padding-bottom: 6px; margin-bottom: 16px; color: #0f172a;";
+
+            const Tag = isSubToc ? "div" : "h1";
+            html += `  <${Tag} class="toc-hoofdtitel" style="${titelStyle}">${titel}</${Tag}>\n`;
+        }
+
+        html += `  <ul style="list-style: none; padding-left: 0; margin: 0;">\n`;
+
+        const minLevel = Math.min(...items.map((i) => i.levelIndex));
+
+        for (const item of items) {
+            const relativeLevel = item.levelIndex - minLevel;
+            const inspringing = relativeLevel * 1.25;
+
+            html += `    <li style="margin-bottom: 4px; padding-left: ${inspringing}rem;">\n`;
+            html += `      <a href="#${item.id}" style="text-decoration: none; color: #0284c7; display: flex; justify-content: space-between; align-items: baseline;" class="toc-link">\n`;
+            html += `        <span style="font-weight: ${item.levelIndex === 1 || isSubToc ? '500' : 'normal'}; font-size: ${isSubToc ? '12px' : '13px'};">\n`;
+            html += `          ${item.nummering}${item.label}\n`;
+            html += `        </span>\n`;
+            html += `        <span class="toc-dots" style="flex-grow: 1; border-bottom: 1px dotted #cbd5e1; margin: 0 8px;"></span>\n`;
+            html += `      </a>\n`;
+            html += `    </li>\n`;
+        }
+
+        html += `  </ul>\n`;
+        html += `</div>\n`;
+        return html;
     }
 
     async function verwerkSqlNiveau(
@@ -151,10 +202,9 @@ async function genereerRapportViaSql(
                 ? vulTemplateIn(levelConfig.titelTemplate, huidigeRijContext)
                 : row.Header1 || row.Header2 || row.Header3 || row.label || row.title || "";
 
-            // Unieke Anker ID maken voor TOC / Hyperlink
             const anchorId = `toc-sec-${currentLevelIndex}-${subNummering.join("-") || childIndex}`;
 
-            // Voeg toe aan TOC als niveau binnen maxDiepte valt
+            // Voeg toe aan hoofd-TOC als niveau binnen maxDiepte valt
             const maxDiepte = config.inhoudsopgave?.maxDiepte ?? maxDepth;
             if (config.inhoudsopgave?.tonen && currentLevelIndex <= maxDiepte && titelTekst) {
                 tocItems.push({
@@ -173,7 +223,8 @@ async function genereerRapportViaSql(
 
             if (levelConfig.tekstTemplate) {
                 const tekst = vulTemplateIn(levelConfig.tekstTemplate, huidigeRijContext);
-                niveauHtml += `  <p>${tekst}</p>\n`;
+                // Gebruik een div met de class 'richtext-content' i.p.v. een vaste <p>
+                niveauHtml += `  <div class="richtext-content">${tekst}</div>\n`;
             }
 
             if (levelConfig.weergaveType === "tabel") {
@@ -187,8 +238,26 @@ async function genereerRapportViaSql(
                 }
             }
 
+            // Vervolgniveaus verwerken
             if (currentLevelIndex + 1 < maxDepth) {
+                const tocIndexVoorSub = tocItems.length;
+
                 const subHtml = await verwerkSqlNiveau(currentLevelIndex + 1, huidigeRijContext, subNummering);
+
+                // Als dit niveau een mini-TOC wenst voor zijn direct onderliggende niveaus:
+                if (levelConfig.toonSubInhoudsopgave && subHtml.trim().length > 0) {
+                    const diepteLimiet = levelConfig.subInhoudsopgaveDiepte ?? 1;
+                    const maxSubLevelIndex = currentLevelIndex + diepteLimiet;
+
+                    const subTocItems = tocItems.slice(tocIndexVoorSub).filter(
+                        (item) => item.levelIndex <= maxSubLevelIndex
+                    );
+
+                    if (subTocItems.length > 0) {
+                        niveauHtml += genereerTocHtml(subTocItems, "Inhoud van deze sectie", true);
+                    }
+                }
+
                 if (subHtml.trim().length > 0) {
                     if (config.weergaveStijl === "boek") {
                         niveauHtml += subHtml;
@@ -209,37 +278,50 @@ async function genereerRapportViaSql(
         return niveauHtml;
     }
 
-    const startNummering = config.levels[0]?.toonNummering === false ? [] : [1];
-    const hoofdInhoud = await verwerkSqlNiveau(0, {}, startNummering);
+    // 1. Verwerk Niveau 0 (Titelpagina)
+    const level0Config = config.levels[0];
+    let niveau0Html = "";
 
-    // Bouw Inhoudsopgave-HTML op indien gewenst
-    let tocHtml = "";
-    if (config.inhoudsopgave?.tonen && tocItems.length > 0) {
-        const tocTitel = config.inhoudsopgave.titel || "Inhoudsopgave";
-        const pageBreakToc = config.inhoudsopgave.pageBreakAfter ? "style='page-break-after: always; margin-bottom: 2rem;'" : "style='margin-bottom: 2rem;'";
+    if (level0Config && level0Config.queryTemplate) {
+        const gevuldeSql = vulQueryIn(level0Config.queryTemplate, { startId: startObjectId });
+        const resultaat = await db.run(sql.raw(gevuldeSql));
+        const rows: Record<string, any>[] = (resultaat as any).rows || resultaat || [];
 
-        tocHtml += `<div class="inhoudsopgave-container" ${pageBreakToc}>\n`;
-        tocHtml += `  <h1 class="toc-hoofdtitel" style="border-bottom: 2px solid #0f172a; padding-bottom: 6px; margin-bottom: 16px;">${tocTitel}</h1>\n`;
-        tocHtml += `  <ul style="list-style: none; padding-left: 0; margin: 0;">\n`;
+        if (rows.length > 0) {
+            const row = rows[0];
+            const titelTekst = level0Config.titelTemplate
+                ? vulTemplateIn(level0Config.titelTemplate, { startId: startObjectId, ...row })
+                : row.Header1 || row.label || row.title || "";
 
-        for (const item of tocItems) {
-            const inspringing = item.levelIndex * 1.25; // inspringing in rem per niveau
-            tocHtml += `    <li style="margin-bottom: 6px; padding-left: ${inspringing}rem;">\n`;
-            tocHtml += `      <a href="#${item.id}" style="text-decoration: none; color: #0284c7; display: flex; justify-content: space-between; align-items: baseline;" class="toc-link">\n`;
-            tocHtml += `        <span style="font-weight: ${item.levelIndex === 0 ? 'bold' : 'normal'};">\n`;
-            tocHtml += `          ${item.nummering}${item.label}\n`;
-            tocHtml += `        </span>\n`;
-            tocHtml += `        <span class="toc-dots" style="flex-grow: 1; border-bottom: 1px dotted #cbd5e1; margin: 0 8px;"></span>\n`;
-            tocHtml += `      </a>\n`;
-            tocHtml += `    </li>\n`;
+            const headingTag = level0Config.headingTag || "h1";
+
+            niveau0Html += `<div class="rapport-sectie" style="page-break-after: always; margin-bottom: 2rem;">\n`;
+            if (titelTekst) {
+                niveau0Html += `  <${headingTag}>${titelTekst}</${headingTag}>\n`;
+            }
+            if (level0Config.tekstTemplate) {
+                const tekst = vulTemplateIn(level0Config.tekstTemplate, { startId: startObjectId, ...row });
+                niveau0Html += `  <p>${tekst}</p>\n`;
+            }
+            niveau0Html += `</div>\n`;
         }
-
-        tocHtml += `  </ul>\n`;
-        tocHtml += `</div>\n`;
     }
 
-    return tocHtml + hoofdInhoud;
+    // 2. Verwerk Niveau 1+ (Hoofdstukken, Paragrafen, etc.)
+    const hoofdInhoudHtml = await verwerkSqlNiveau(1, { startId: startObjectId }, [1]);
+
+    // 3. Bouw de Hoofd-Inhoudsopgave op
+    let tocHtml = "";
+    if (config.inhoudsopgave?.tonen && tocItems.length > 0) {
+        const hoofdTocItems = tocItems.filter(item => item.levelIndex > 0);
+        const tocTitel = config.inhoudsopgave.titel || "Inhoudsopgave";
+        tocHtml = genereerTocHtml(hoofdTocItems, tocTitel, false);
+    }
+
+    // 4. Samenvoegen in de exacte volgorde: [Titelpagina] -> [Hoofd TOC] -> [Inhoud]
+    return niveau0Html + tocHtml + hoofdInhoudHtml;
 }
+
 /**
  * GENERATOR STRATEGIE 2: Relationele ORM verwerking (Oude stuurbestanden)
  */
@@ -428,10 +510,8 @@ async function genereerRapportViaRelaties(
 
             if (subHtml.trim().length > 0) {
                 if (config.weergaveStijl === "boek") {
-                    // Geen extra marge of blockquote: strak onder elkaar
                     html += subHtml;
                 } else {
-                    // Standaard inspringen voor boomstructuur/dossier
                     html += `<blockquote style="margin-left: 1.5rem; padding-left: 0.5rem; border-left: 2px solid #475569;">\n`;
                     html += subHtml;
                     html += `</blockquote>\n`;
@@ -454,7 +534,6 @@ export async function genereerRapport(
     config: ReportConfig
 ): Promise<{ success: boolean; html?: string; error?: string }> {
     try {
-        // Detecteer of minimaal één niveau een queryTemplate bevat
         const isSqlDriven = config.levels.some((level) => Boolean(level.queryTemplate));
 
         let html = "";
@@ -560,11 +639,78 @@ export async function genereerPdfRapport(
                     th, td { border-bottom: 1px solid #e2e8f0; padding: 6px 8px; text-align: left; }
                     th { background-color: #f8fafc; font-weight: 600; color: #334155; }
                     @page { margin: 15mm; }
+
+
+                    /* Rijke tekst & Tiptap Styling */
+.richtext-content {
+    margin-bottom: 1rem;
+    font-size: 13px;
+    color: #334155;
+}
+.richtext-content p {
+    margin-top: 0;
+    margin-bottom: 0.5rem;
+}
+.richtext-content ul {
+    list-style-type: disc;
+    padding-left: 1.5rem;
+    margin-bottom: 0.75rem;
+}
+.richtext-content ol {
+    list-style-type: decimal;
+    padding-left: 1.5rem;
+    margin-bottom: 0.75rem;
+}
+.richtext-content blockquote {
+    border-left: 4px solid #0284c7;
+    padding-left: 1rem;
+    font-style: italic;
+    color: #475569;
+    margin: 1rem 0;
+}
+
+/* Callout / Subtitel toelichtingsblokken */
+.toelichting-box {
+    background-color: #f0f9ff;
+    border-left: 4px solid #0284c7;
+    padding: 12px 16px;
+    border-radius: 4px;
+    margin-bottom: 1rem;
+}
+
+/* Afbeeldingen & Layouts uit TipTap Editor */
+.richtext-content img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    border-radius: 4px;
+    margin: 1rem 0;
+}
+.richtext-content img[data-layout="inline-left"] {
+    float: left;
+    margin-right: 1.5rem;
+    margin-bottom: 1rem;
+    max-width: 50%;
+}
+.richtext-content img[data-layout="inline-right"] {
+    float: right;
+    margin-left: 1.5rem;
+    margin-bottom: 1rem;
+    max-width: 50%;
+}
+.richtext-content img[data-layout="inline-center"] {
+    margin-left: auto;
+    margin-right: auto;
+}
+.richtext-content img[data-layout="span-all"] {
+    width: 100%;
+    max-width: 100%;
+}
                 </style>
             </head>
             <body>
                 <header>
-                    <h1>${config.naam}</h1>
+                    <h1>Dit hoeft er niet in ${config.naam}</h1>
                     ${config.beschrijving ? `<p>${config.beschrijving}</p>` : ""}
                 </header>
                 <main>
@@ -580,8 +726,8 @@ export async function genereerPdfRapport(
         });
 
         const page = await browser.newPage();
-        
-       await page.setContent(volledigeHtml, { waitUntil: "domcontentloaded" });
+
+        await page.setContent(volledigeHtml, { waitUntil: "domcontentloaded" });
 
         const pdfBuffer = await page.pdf({
             format: "A4",

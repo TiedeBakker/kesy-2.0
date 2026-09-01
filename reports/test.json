@@ -5,8 +5,8 @@
   "weergaveStijl": "boek",
   "inhoudsopgave": {
     "tonen": true,
-    "maxDiepte": 2,
-    "titel": "Inhoudsopgave",
+    "maxDiepte": 5,
+    "titel": "Inhoudsopgave 123",
     "pageBreakAfter": true
   },
   "levels": [
@@ -16,7 +16,8 @@
       "toonNummering": false,
       "weergaveType": "template",
       "titelTemplate": "{{Header1}}",
-      "queryTemplate": "SELECT o.label AS Header1, o.id AS startId FROM objects o WHERE o.id = :startId AND o.deleted_at IS NULL"
+      "queryTemplate": "SELECT o.label AS Header1, o.id AS startId, value FROM objects o left join (SELECT * FROM parameter_values WHERE parameter_id = '019fc74c-cf8c-74ff-a3b6-b6d21c651a19') AS p on o.id = p.target_id WHERE o.id = :startId AND o.deleted_at IS NULL",
+      "tekstTemplate": "Dit is een test van de11212121 tekst template {{value}} voor niveau 0. De waarde van Header1 is: {{Header1}}"
     },
     {
       "level": 1,
@@ -24,7 +25,9 @@
       "toonNummering": true,
       "weergaveType": "template",
       "titelTemplate": "{{Header2}}",
-      "queryTemplate": "SELECT o.label AS Header2, o.id AS Id2 FROM objects o JOIN relation_values rv ON rv.target_id = o.id WHERE rv.source_id = :startId AND o.deleted_at IS NULL AND rv.deleted_at IS NULL ORDER BY rv.volgorde"
+      "queryTemplate": "SELECT o.label AS Header2, o.id AS Id2 FROM objects o JOIN relation_values rv ON rv.target_id = o.id WHERE rv.source_id = :startId AND o.deleted_at IS NULL AND rv.deleted_at IS NULL ORDER BY rv.volgorde",
+      "toonSubInhoudsopgave": true,    
+      "subInhoudsopgaveDiepte": 5
     },
     {
       "level": 2,
