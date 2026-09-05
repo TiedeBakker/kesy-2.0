@@ -136,8 +136,8 @@ export default function RapportagePagina() {
         <button
           onClick={() => setActieveTab("basis")}
           className={`px-4 py-2 text-sm font-semibold border-b-2 transition-all ${actieveTab === "basis"
-              ? "border-emerald-500 text-emerald-400"
-              : "border-transparent text-slate-400 hover:text-slate-200"
+            ? "border-emerald-500 text-emerald-400"
+            : "border-transparent text-slate-400 hover:text-slate-200"
             }`}
         >
           Basisrapportages
@@ -145,8 +145,8 @@ export default function RapportagePagina() {
         <button
           onClick={() => setActieveTab("custom")}
           className={`px-4 py-2 text-sm font-semibold border-b-2 transition-all ${actieveTab === "custom"
-              ? "border-emerald-500 text-emerald-400"
-              : "border-transparent text-slate-400 hover:text-slate-200"
+            ? "border-emerald-500 text-emerald-400"
+            : "border-transparent text-slate-400 hover:text-slate-200"
             }`}
         >
           Aangepast (Binnenkort)
@@ -304,8 +304,11 @@ export default function RapportagePagina() {
 
               {/* SCROLLBARE HTML CONTAINER */}
               {rapportHtml && (
-                <div className="flex-1 overflow-y-auto bg-slate-950 border border-slate-800 rounded-xl p-6 text-slate-200 text-sm prose prose-invert max-w-none">
-                  <div dangerouslySetInnerHTML={{ __html: rapportHtml }} />
+                <div className="flex-1 overflow-y-auto bg-slate-950 border border-slate-800 rounded-xl p-4">
+                  {/* A4 Papieren Container voor een schone preview */}
+                  <div className="mx-auto bg-white text-slate-900 rounded-lg shadow-xl p-8 max-w-4xl min-h-full">
+                    <div dangerouslySetInnerHTML={{ __html: rapportHtml }} />
+                  </div>
                 </div>
               )}
             </div>

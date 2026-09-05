@@ -1,0 +1,78 @@
+{
+  "id": "Standaardboek",
+  "naam": "Standaardboek",
+  "themaId": "thema-corporate-groen",
+  "aangepasteStyling": {
+    "klassen": {
+      "toelichting-blok": "background-color: #f0fdf4;"
+    },
+     "paginering": {
+        "formaat": "A4",
+        "marge": "20mm",
+        "achtergrondKleur": "#ffff00"
+    }
+  },
+  "beschrijving": "<div style='page-break-after: always;'>Rapport opgebouwd ,<!-- via opvolgende --> SQL queries per niveau.",
+  "weergaveStijl": "boek",
+  "inhoudsopgave": {
+    "tonen": true,
+    "maxDiepte": 3,
+    "titel": "Inhoudsopgave",
+    "pageBreakAfter": true
+  },
+  "levels": [
+    {
+      "level": 0,
+      "headingTag": "h1",
+      "toonNummering": false,
+      "weergaveType": "template",
+      "titelTemplate": "{{Header1}}",
+      "queryTemplate": "WITH RECURSIVE object_tree(id) AS (SELECT :startId UNION SELECT rv.target_id FROM object_tree ot JOIN relation_values rv ON rv.source_id = ot.id WHERE rv.deleted_at IS NULL) SELECT o.label AS Header1, o.id AS startId, p.value, COALESCE(SUM(CASE WHEN pv.parameter_id = '019fad6f-c149-7795-b3e5-751c8b2b7949' THEN CAST(pv.value AS INTEGER) ELSE 0 END), 0) AS totaal_aantal_insecten, COUNT(DISTINCT CASE WHEN pv.parameter_id = '019fce6b-626f-7609-b67c-17fb251e36e7' THEN pv.value END) AS aantal_soorten FROM objects o LEFT JOIN parameter_values p ON o.id = p.target_id AND p.parameter_id = '019fc74c-cf8c-74ff-a3b6-b6d21c651a19' AND p.deleted_at IS NULL LEFT JOIN object_tree ot ON 1=1 LEFT JOIN parameter_values pv ON pv.target_id = ot.id AND pv.target_type = 'object' AND pv.deleted_at IS NULL WHERE o.id = :startId AND o.deleted_at IS NULL GROUP BY o.id, o.label, p.value;",
+      "tekstTemplate": [
+        "<!-- DIT IS EEN INTERNE OPMERKING DIE ONZICHTBAAR BLIJFT -->",
+        "<!-- DIT IS EEN INTERNE OPMERKING DIE ONSICHTBAAR ",
+        "BLIJFT -->",
+        "<div style='page-break-after: always;'></div>",
+        "<h1>Vooraf</h1>",
+        "<p>111111111111Dit wordt de documentatie bij mijn Kennis- en Informatiesysteem KESY, versie 2.0</p>",
+        "<p>Omdat ik nu nog in de ontwikkelperiode zit zullen een aantal onderdelen nog erg voorlopig en onvolledig zijn. Tegelijk probeer ik verantwoording van keuzes én ideeën voor verdere ontwikkeling wel goed vast te leggen, maar de uiteindelijke structuur moet nog ontstaan.</p>",
+        "<p>Kale \ntekst</p>",
+        "<p>Volgende <br>regel</p>",
+        "<p>tekst template {{value}} </p>"
+      ]
+    },
+    {
+      "level": 1,
+      "headingTag": "h1",
+      "toonNummering": true,
+      "weergaveType": "template",
+      "titelTemplate": "{{Header2}}",
+      "queryTemplate": "SELECT o.label AS Header1, o.id AS id1, rv.target_id AS id2, o2.label AS Header2, pv.value AS toelichting FROM objects o JOIN relation_values rv ON rv.source_id = o.id JOIN objects o2 ON o2.id = rv.target_id LEFT JOIN parameter_values pv ON pv.target_id = o2.id AND pv.target_type = 'object' AND pv.parameter_id = '019fc74c-cf8c-74ff-a3b6-b6d21c651a19' AND pv.deleted_at IS NULL WHERE o.id = :startId AND o.deleted_at IS NULL AND rv.deleted_at IS NULL ORDER BY rv.volgorde",
+      "tekstTemplate": "{{toelichting}}",
+      "toonSubInhoudsopgave": true,
+      "subInhoudsopgaveDiepte": 2
+    },
+    {
+      "level": 2,
+      "headingTag": "h2",
+      "toonNummering": true,
+      "weergaveType": "template",
+      "titelTemplate": "{{Header3}}",
+      "queryTemplate": "SELECT o.label AS Header2, rv.target_id AS id3, o3.label AS Header3, pv.value AS toelichting FROM objects o JOIN relation_values rv ON rv.source_id = o.id JOIN objects o3 ON o3.id = rv.target_id LEFT JOIN parameter_values pv ON pv.target_id = o3.id AND pv.target_type = 'object' AND pv.parameter_id = '019fc74c-cf8c-74ff-a3b6-b6d21c651a19' AND pv.deleted_at IS NULL WHERE o.id = :id2 AND o.deleted_at IS NULL AND rv.deleted_at IS NULL ORDER BY rv.volgorde",
+      "tekstTemplate": "{{toelichting}}",
+      "toonSubInhoudsopgave": true,
+      "subInhoudsopgaveDiepte": 2
+    },
+    {
+      "level": 3,
+      "headingTag": "h3",
+      "toonNummering": true,
+      "weergaveType": "template",
+      "titelTemplate": "{{Header4}}",
+      "queryTemplate": "SELECT o.label AS Header3, rv.target_id AS id4, o4.label AS Header4, pv.value AS toelichting FROM objects o JOIN relation_values rv ON rv.source_id = o.id JOIN objects o4 ON o4.id = rv.target_id LEFT JOIN parameter_values pv ON pv.target_id = o4.id AND pv.target_type = 'object' AND pv.parameter_id = '019fc74c-cf8c-74ff-a3b6-b6d21c651a19' AND pv.deleted_at IS NULL WHERE o.id = :id3 AND o.deleted_at IS NULL AND rv.deleted_at IS NULL ORDER BY rv.volgorde",
+      "tekstTemplate": "{{toelichting}}",
+      "toonSubInhoudsopgave": true,
+      "subInhoudsopgaveDiepte": 2
+    }
+  ]
+}

@@ -7,6 +7,42 @@ import * as schema from "@/src/db/schema";
 import { eq, asc, and, isNull, sql } from "drizzle-orm";
 import puppeteer from "puppeteer";
 
+export interface ReportThemePaginering {
+    formaat?: string;            // bijv. "A4"
+    marge?: string;              // bijv. "15mm"
+    achtergrondKleur?: string;   // bijv. "#ffffff"
+}
+
+export interface ReportThemeTypografie {
+    lettertype?: string;          // bijv. "system-ui, sans-serif"
+    basisTekstGrootte?: string;   // bijv. "11pt" of "13px"
+    regelHoogte?: string;         // bijv. "1.5"
+    primaireKleur?: string;       // bijv. "#0284c7"
+    secundaireKleur?: string;     // bijv. "#0f172a"
+    tekstKleur?: string;          // bijv. "#334155"
+}
+
+export interface ReportTheme {
+    id: string;
+    naam: string;
+    paginering?: {
+        formaat?: string;
+        marge?: string;
+        achtergrondKleur?: string;
+    };
+    typografie?: {
+        lettertype?: string;
+        basisTekstGrootte?: string;
+        regelHoogte?: string;
+        primaireKleur?: string;
+        secundaireKleur?: string;
+        tekstKleur?: string;
+    };
+    elementen?: Record<string, string>; // Eenvoudige selectors: h1, h2, table
+    klassen?: Record<string, string>;   // Eenvoudige klassen: toelichting-box
+    ruweCss?: string;                   // Complexere/geneste CSS regels!
+}
+
 export interface ReportConfigLevel {
     level: number;
     relaties?: "*" | string[];
@@ -37,6 +73,9 @@ export interface ReportConfig {
     toonNummering?: boolean;
     weergaveStijl?: "boek" | "boom";
     inhoudsopgave?: ReportConfigInhoudsopgave;
+    // NIEUWE VELDEN VOOR THEMA STYLING:
+    themaId?: string;                                    // Koppeling naar thema-bestand (bijv. "corporate-groen")
+    aangepasteStyling?: Partial<Omit<ReportTheme, "id" | "naam">>; // Overschrijvingen op rapport-niveau
     levels: ReportConfigLevel[];
 }
 
@@ -92,6 +131,21 @@ export async function haalStuurbestandenOp(): Promise<ReportConfig[]> {
     } catch (error) {
         console.error("Fout bij ophalen stuurbestanden:", error);
         return [];
+    }
+}
+export async function haalThemaOp(themaId?: string): Promise<ReportTheme | undefined> {
+    if (!themaId) return undefined;
+
+    try {
+        // Zorg dat het pad wijst naar de map waar jouw thema JSON-bestanden staan
+        const themesDir = path.join(process.cwd(), "reports");
+        const filePath = path.join(themesDir, `${themaId}.json`);
+
+        const content = await fs.readFile(filePath, "utf-8");
+        return JSON.parse(content) as ReportTheme;
+    } catch (error) {
+        console.warn(`Thema '${themaId}' kon niet worden geladen:`, error);
+        return undefined;
     }
 }
 
@@ -551,6 +605,41 @@ async function genereerRapportViaRelaties(
 /**
  * HOOFDFUNCTIE MET AUTOMATISCHE DETECTIE
  */
+
+
+// Maak de functie 'async' zodat Next.js deze mag exporteren als Server Action
+export async function wikkelsHtmlMetStyling(
+    inhoudHtml: string, 
+    config: ReportConfig,
+    geladenThema?: ReportTheme
+): Promise<string> {
+    const gegenereerdeCss = await genereerCssUitThema(geladenThema, config.aangepasteStyling);
+
+    return `
+        <!DOCTYPE html>
+        <html lang="nl">
+        <head>
+            <meta charset="UTF-8">
+            <title>${config.naam}</title>
+            <style>
+                ${gegenereerdeCss}
+            </style>
+        </head>
+        <body>
+            <div class="rapport-preview">
+                <header>
+                    <h1>${config.naam}</h1>
+                    ${config.beschrijving ? `<p>${config.beschrijving}</p>` : ""}
+                </header>
+                <main>
+                    ${inhoudHtml}
+                </main>
+            </div>
+        </body>
+        </html>
+    `;
+}
+// 2. Gebruik deze wikkel in `genereerRapport`
 export async function genereerRapport(
     startObjectId: string,
     config: ReportConfig
@@ -558,16 +647,22 @@ export async function genereerRapport(
     try {
         const isSqlDriven = config.levels.some((level) => Boolean(level.queryTemplate));
 
-        let html = "";
+        let ruweHtml = "";
         if (isSqlDriven) {
-            html = await genereerRapportViaSql(startObjectId, config);
+            ruweHtml = await genereerRapportViaSql(startObjectId, config);
         } else {
-            html = await genereerRapportViaRelaties(startObjectId, config);
+            ruweHtml = await genereerRapportViaRelaties(startObjectId, config);
         }
+
+        // 1. Haal het thema op
+        const geladenThema = await haalThemaOp(config.themaId);
+
+        // 2. Geef geladenThema mee aan wikkelsHtmlMetStyling
+        const volledigeHtml = await wikkelsHtmlMetStyling(ruweHtml, config, geladenThema);
 
         return {
             success: true,
-            html: html || `<p class="text-slate-400">Geen gegevens gevonden voor het geselecteerde object.</p>`,
+            html: volledigeHtml || `<p class="text-slate-400">Geen gegevens gevonden voor het geselecteerde object.</p>`,
         };
     } catch (error: any) {
         console.error("Fout bij verwerken rapportage:", error);
@@ -577,7 +672,7 @@ export async function genereerRapport(
         };
     }
 }
-
+// 3. Gebruik hetzelfde in `genereerPdfRapport`
 export async function genereerPdfRapport(
     startObjectId: string,
     config: ReportConfig
@@ -588,158 +683,12 @@ export async function genereerPdfRapport(
             return { success: false, error: resultaat.error || "Geen HTML gegenereerd." };
         }
 
-        const volledigeHtml = `
-            <!DOCTYPE html>
-            <html lang="nl">
-            <head>
-                <meta charset="UTF-8">
-                <title>${config.naam}</title>
-                <style>
-                    * {
-                        box-sizing: border-box;
-                    }
-                    body {
-                        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-                        padding: 10px;
-                        color: #0f172a;
-                        background-color: #ffffff;
-                        line-height: 1.5;
-                    }
-                    header {
-                        margin-bottom: 20px;
-                        border-bottom: 2px solid #0f172a;
-                        padding-bottom: 10px;
-                    }
-                    header h1 {
-                        margin: 0;
-                        font-size: 24px;
-                        color: #0f172a;
-                    }
-                    header p {
-                        color: #64748b;
-                        margin: 4px 0 0 0;
-                        font-size: 14px;
-                    }
-                    .inhoudsopgave-container {
-                        margin-bottom: 2rem;
-                    }
-                    .toc-hoofdtitel {
-                        font-size: 20px;
-                        font-weight: bold;
-                        border-bottom: 2px solid #0f172a;
-                        padding-bottom: 6px;
-                        margin-bottom: 16px;
-                    }
-                    .toc-link {
-                        color: #0284c7 !important;
-                        text-decoration: none !important;
-                        display: flex;
-                        justify-content: space-between;
-                        align-items: baseline;
-                    }
-                    .toc-dots {
-                        flex-grow: 1;
-                        border-bottom: 1px dotted #cbd5e1;
-                        margin: 0 8px;
-                    }
-                    .rapport-sectie {
-                        margin-bottom: 1rem;
-                    }
-                    blockquote {
-                        margin-left: 1.5rem;
-                        padding-left: 0.75rem;
-                        border-left: 2px solid #cbd5e1;
-                        margin-top: 0.5rem;
-                        margin-bottom: 0.5rem;
-                    }
-                    h1 { font-size: 22px; font-weight: bold; margin-top: 1.25rem; margin-bottom: 0.5rem; color: #0f172a; }
-                    h2 { font-size: 18px; font-weight: 600; margin-top: 1rem; margin-bottom: 0.5rem; color: #1e293b; }
-                    h3 { font-size: 15px; font-weight: 600; margin-top: 0.75rem; margin-bottom: 0.5rem; color: #334155; }
-                    h4 { font-size: 14px; font-weight: 500; margin-top: 0.5rem; color: #475569; }
-                    p { font-size: 13px; color: #334155; margin-top: 0; margin-bottom: 0.5rem; }
-                    table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; margin-bottom: 1rem; font-size: 13px; }
-                    th, td { border-bottom: 1px solid #e2e8f0; padding: 6px 8px; text-align: left; }
-                    th { background-color: #f8fafc; font-weight: 600; color: #334155; }
-                    @page { margin: 15mm; }
+        // 1. Haal gewenste pagina-instellingen op uit het thema / customStyling
+        const thema = await haalThemaOp(config.themaId); // Of hoe het thema geladen wordt
+        const paginering = { ...thema?.paginering, ...config.aangepasteStyling?.paginering };
 
-                    /* Rijke tekst & Tiptap Styling */
-                    .richtext-content {
-                        margin-bottom: 1rem;
-                        font-size: 13px;
-                        color: #334155;
-                    }
-                    .richtext-content p {
-                        margin-top: 0;
-                        margin-bottom: 0.5rem;
-                    }
-                    .richtext-content ul {
-                        list-style-type: disc;
-                        padding-left: 1.5rem;
-                        margin-bottom: 0.75rem;
-                    }
-                    .richtext-content ol {
-                        list-style-type: decimal;
-                        padding-left: 1.5rem;
-                        margin-bottom: 0.75rem;
-                    }
-                    .richtext-content blockquote {
-                        border-left: 4px solid #0284c7;
-                        padding-left: 1rem;
-                        font-style: italic;
-                        color: #475569;
-                        margin: 1rem 0;
-                    }
-
-                    /* Callout / Subtitel toelichtingsblokken */
-                    .toelichting-box {
-                        background-color: #f0f9ff;
-                        border-left: 4px solid #0284c7;
-                        padding: 12px 16px;
-                        border-radius: 4px;
-                        margin-bottom: 1rem;
-                    }
-
-                    /* Afbeeldingen & Layouts uit TipTap Editor */
-                    .richtext-content img {
-                        max-width: 100%;
-                        height: auto;
-                        display: block;
-                        border-radius: 4px;
-                        margin: 1rem 0;
-                    }
-                    .richtext-content img[data-layout="inline-left"] {
-                        float: left;
-                        margin-right: 1.5rem;
-                        margin-bottom: 1rem;
-                        max-width: 50%;
-                    }
-                    .richtext-content img[data-layout="inline-right"] {
-                        float: right;
-                        margin-left: 1.5rem;
-                        margin-bottom: 1rem;
-                        max-width: 50%;
-                    }
-                    .richtext-content img[data-layout="inline-center"] {
-                        margin-left: auto;
-                        margin-right: auto;
-                    }
-                    .richtext-content img[data-layout="span-all"] {
-                        width: 100%;
-                        max-width: 100%;
-                    }
-                </style>
-            </head>
-            <body>
-                <header>
-                    <h1>${config.naam}</h1>
-                    ${config.beschrijving ? `<p>${config.beschrijving}</p>` : ""}
-                </header>
-                <main>
-                    ${resultaat.html}
-                </main>
-            </body>
-            </html>
-        `;
+        const papierFormaat = (paginering.formaat || "A4") as any;
+        const margeWaarde = paginering.marge || "15mm";
 
         const browser = await puppeteer.launch({
             headless: true,
@@ -747,20 +696,25 @@ export async function genereerPdfRapport(
         });
 
         const page = await browser.newPage();
+        await page.setContent(resultaat.html, { waitUntil: "domcontentloaded" });
 
-        await page.setContent(volledigeHtml, { waitUntil: "domcontentloaded" });
-
+        // 2. Geef het dynamische formaat en marges door aan Puppeteer
         const pdfBuffer = await page.pdf({
-            format: "A4",
+            format: papierFormaat, // Hierdoor werkt "A6", "A5", "A4", etc. nu WEL!
             printBackground: true,
             displayHeaderFooter: true,
             headerTemplate: `<div></div>`,
             footerTemplate: `
-                <div style="font-size: 9px; color: #94a3b8; width: 100%; text-align: right; padding-right: 15mm;">
+                <div style="font-size: 9px; color: #94a3b8; width: 100%; text-align: right; padding-right: ${margeWaarde};">
                     Pagina <span class="pageNumber"></span> van <span class="totalPages"></span>
                 </div>
             `,
-            margin: { top: "15mm", bottom: "15mm", left: "15mm", right: "15mm" },
+            margin: { 
+                top: margeWaarde, 
+                bottom: margeWaarde, 
+                left: margeWaarde, 
+                right: margeWaarde 
+            },
         });
 
         await browser.close();
@@ -776,4 +730,92 @@ export async function genereerPdfRapport(
             error: error?.message || "Er is een fout opgetreden bij het genereren van de PDF.",
         };
     }
+}
+export async function genereerCssUitThema(
+    thema?: ReportTheme,
+    customStyling?: Partial<Omit<ReportTheme, "id" | "naam">>
+): Promise<string> {
+    const paginering = { ...thema?.paginering, ...customStyling?.paginering };
+    const typografie = { ...thema?.typografie, ...customStyling?.typografie };
+    const elementen = { ...thema?.elementen, ...customStyling?.elementen };
+    const klassen = { ...thema?.klassen, ...customStyling?.klassen };
+
+    const primaireKleur = typografie.primaireKleur || "#0284c7";
+    const tekstKleur = typografie.tekstKleur || "#334155";
+
+    let css = `
+        * { box-sizing: border-box; }
+
+        /* @page geldt alleen bij afdrukken/PDF-export */
+        @page {
+            size: ${paginering.formaat || "A4"};
+            margin: ${paginering.marge || "15mm"};
+           /* background-color: ${paginering.achtergrondKleur || '#ffffff'};*/
+        }
+
+        /* Scope de basis-styling naar .rapport-preview zodat het de app-shell niet beïnvloedt */
+        .rapport-preview {
+            font-family: ${typografie.lettertype || 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'};
+            font-size: ${typografie.basisTekstGrootte || '13px'};
+            line-height: ${typografie.regelHoogte || '1.5'};
+            color: ${tekstKleur};
+            background-color: ${paginering.achtergrondKleur || '#ffffff'};
+            padding: ${paginering.marge || '15mm'};
+            width: 100%;
+            min-height: 100%;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        }
+
+        /* Standard Header & Secties binnen de preview */
+        .rapport-preview header { margin-bottom: 20px; border-bottom: 2px solid #0f172a; padding-bottom: 10px; }
+        .rapport-preview header h1 { margin: 0; font-size: 32px; color: #0f172a; }
+        .rapport-preview header p { color: #64748b; margin: 4px 0 0 0; font-size: 14px; }
+        .rapport-preview .rapport-sectie { margin-bottom: 1rem; }
+
+        /* Inhoudsopgave (TOC) */
+        .rapport-preview .inhoudsopgave-container { margin-bottom: 2rem; }
+        .rapport-preview .toc-hoofdtitel { font-size: 20px; font-weight: bold; border-bottom: 2px solid #0f172a; padding-bottom: 6px; margin-bottom: 16px; }
+        .rapport-preview .toc-link { color: ${primaireKleur} !important; text-decoration: none !important; display: flex; justify-content: space-between; align-items: baseline; }
+        .rapport-preview .toc-dots { flex-grow: 1; border-bottom: 1px dotted #cbd5e1; margin: 0 8px; }
+
+        /* Rijke Tekst & TipTap Editor Functionaliteiten */
+        .rapport-preview .richtext-content { margin-bottom: 1rem; font-size: 13px; color: ${tekstKleur}; }
+        .rapport-preview .richtext-content p { margin-top: 0; margin-bottom: 0.5rem; }
+        .rapport-preview .richtext-content ul { list-style-type: disc; padding-left: 1.5rem; margin-bottom: 0.75rem; }
+        .rapport-preview .richtext-content ol { list-style-type: decimal; padding-left: 1.5rem; margin-bottom: 0.75rem; }
+        .rapport-preview .richtext-content blockquote { border-left: 4px solid ${primaireKleur}; padding-left: 1rem; font-style: italic; color: #475569; margin: 1rem 0; }
+        
+        /* Afbeeldingen & Layouts uit TipTap Editor */
+        .rapport-preview .richtext-content img { max-width: 100%; height: auto; display: block; border-radius: 4px; margin: 1rem 0; }
+        .rapport-preview .richtext-content img[data-layout="inline-left"] { float: left; margin-right: 1.5rem; margin-bottom: 1rem; max-width: 50%; }
+        .rapport-preview .richtext-content img[data-layout="inline-right"] { float: right; margin-left: 1.5rem; margin-bottom: 1rem; max-width: 50%; }
+        .rapport-preview .richtext-content img[data-layout="inline-center"] { margin-left: auto; margin-right: auto; }
+        .rapport-preview .richtext-content img[data-layout="span-all"] { width: 100%; max-width: 100%; }
+
+        /* Elementen binnen het rapport */
+        .rapport-preview h1 { font-size: 22px; font-weight: bold; margin-top: 1.25rem; margin-bottom: 0.5rem; color: #0f172a; }
+        .rapport-preview h2 { font-size: 18px; font-weight: 600; margin-top: 1rem; margin-bottom: 0.5rem; color: #1e293b; }
+        .rapport-preview h3 { font-size: 15px; font-weight: 600; margin-top: 0.75rem; margin-bottom: 0.5rem; color: #334155; }
+        .rapport-preview h4 { font-size: 14px; font-weight: 500; margin-top: 0.5rem; color: #475569; }
+        .rapport-preview p { font-size: 13px; color: ${tekstKleur}; margin-top: 0; margin-bottom: 0.5rem; }
+        .rapport-preview table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; margin-bottom: 1rem; font-size: 13px; }
+        .rapport-preview th, .rapport-preview td { border-bottom: 1px solid #e2e8f0; padding: 6px 8px; text-align: left; }
+        .rapport-preview th { background-color: #f8fafc; font-weight: 600; color: #334155; }
+    `;
+
+    // Overrides voor elementen
+    for (const [selector, stijlen] of Object.entries(elementen)) {
+        css += `\n.rapport-preview ${selector} { ${stijlen} }`;
+    }
+
+    // Overrides voor klassen
+    for (const [klasse, stijlen] of Object.entries(klassen)) {
+        const schoneKlasse = klasse.startsWith('.') ? klasse : `.${klasse}`;
+        css += `\n.rapport-preview ${schoneKlasse} { ${stijlen} }`;
+    }
+
+    if (thema?.ruweCss) css += `\n${thema.ruweCss}`;
+    if (customStyling?.ruweCss) css += `\n${customStyling.ruweCss}`;
+
+    return css;
 }

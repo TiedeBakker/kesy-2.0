@@ -1,0 +1,30 @@
+{
+  "id": "thema-corporate-groen",
+  "naam": "Corporate Groen (A4)",
+  "paginering": {
+    "formaat": "A4",
+    "marge": "20mm",
+    "achtergrondKleur": "#ffffff"
+  },
+  "typografie": {
+    "lettertype": "'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+    "basisTekstGrootte": "11pt",
+    "regelHoogte": "1.6",
+    "primaireKleur": "#059669",
+    "secundaireKleur": "#0f172a",
+    "tekstKleur": "#334155"
+  },
+  "elementen": {
+    "h1": "color: #059669; font-size: 22pt; margin-bottom: 12px; border-bottom: 2px solid #e2e8f0; padding-bottom: 4px;",
+    "h2": "color: #0f172a; font-size: 16pt; margin-top: 18px; margin-bottom: 8px;",
+    "p": "margin-bottom: 10px; text-align: justify;",
+    "table": "width: 100%; border-collapse: collapse; margin-top: 10px;",
+    "th": "background-color: #f1f5f9; color: #0f172a; border: 1px solid #cbd5e1; padding: 6px 10px;",
+    "td": "border: 1px solid #e2e8f0; padding: 6px 10px;"
+  },
+  "klassen": {
+    "toelichting-blok": "background-color: #f8fafc; border-left: 4px solid #059669; padding: 10px; margin: 8px 0; font-style: italic;",
+    "waarschuwing": "color: #dc2626; font-weight: bold; background-color: #fef2f2; padding: 6px; border-radius: 4px;",
+    "pagina-einde": "page-break-before: always;"
+  }
+}
